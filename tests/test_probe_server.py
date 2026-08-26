@@ -3,8 +3,6 @@
 import asyncio
 from pathlib import Path
 
-import pytest
-
 from probe_server.server import _run_scan, read_target_manifest, static_audit
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,8 +24,8 @@ def test_static_audit_passes_clean_fixture():
 
 
 def test_scan_rejects_missing_directory():
-    with pytest.raises(ValueError):
-        asyncio.run(_run_scan("/nonexistent/path/xyz"))
+    result = asyncio.run(_run_scan("/nonexistent/path/xyz"))
+    assert "error" in result
 
 
 def test_read_target_manifest_returns_yaml_files():
@@ -39,5 +37,5 @@ def test_read_target_manifest_returns_yaml_files():
 
 
 def test_read_target_manifest_rejects_missing_directory():
-    with pytest.raises(ValueError):
-        asyncio.run(read_target_manifest("/nonexistent/path/xyz"))
+    result = asyncio.run(read_target_manifest("/nonexistent/path/xyz"))
+    assert "error" in result
