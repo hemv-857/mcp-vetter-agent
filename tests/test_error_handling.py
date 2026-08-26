@@ -119,6 +119,7 @@ def test_clone_target_rejects_bad_urls():
         "file:///etc/passwd",
         "nonsense",
         "https://github.com/only-owner",
+        "https://[::1/x/y",  # malformed - must return error dict, not raise
     ):
         result = asyncio.run(srv.clone_target(bad))
         assert "error" in result

@@ -137,10 +137,13 @@ def _sweep_old_clones(max_age_seconds: int = 86400) -> None:
 
 def _validate_clone_url(repo_url: str) -> str | None:
     """Return an error string for disallowed URLs, else None (URL is acceptable)."""
-    parts = urlsplit(repo_url.strip())
-    if parts.scheme != "https" or not parts.hostname:
+    try:
+        parts = urlsplit(repo_url.strip())
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return "malformed URL"
+    if parts.scheme != "https" or not host:
         return "only https git repository URLs are accepted"
-    host = parts.hostname.lower()
     private = host in ("localhost", "metadata", "metadata.google.internal") or (
         host.endswith((".local", ".internal", ".lan", ".home", ".corp"))
     )
@@ -177,7 +180,8 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
     error = _validate_clone_url(repo_url)
     if error:
         return {"error": error, "url": repo_url}
-    _sweep_old_clones()
+    # ponytail: sweep in a thread - deleting big stale trees must not stall the loop
+    await asyncio.to_thread(_sweep_old_clones)
 
     dest = tempfile.mkdtemp(prefix="vetted-")
     try:
@@ -206,6 +210,10 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
         _, stderr = await asyncio.wait_for(
             proc.communicate(), timeout=CLONE_TIMEOUT_SECONDS
         )
+    except asyncio.CancelledError:
+        await _reap()
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
     except asyncio.TimeoutError:
         await _reap()
         shutil.rmtree(dest, ignore_errors=True)
