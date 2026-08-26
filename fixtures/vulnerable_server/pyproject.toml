@@ -1,5 +1,5 @@
 [project]
-name = "sentinel-vulnerable-fixture"
+name = "vulnerable-mcp-fixture"
 version = "0.0.0"
 requires-python = ">=3.10"
 dependencies = [

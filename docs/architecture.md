@@ -16,7 +16,7 @@ The original design below predates verification. Corrections that supersede anyt
 5. **Real commands**: `npx @truefoundry/trueforge@latest` → UI at `http://localhost:8790`.
    No `init`/`dev`. Sandbox provider is Daytona. GitHub access uses the catalog connector (OAuth),
    not a custom API wrapper or personal token.
-6. **Scanning engine** is the published `mcp-sentinel` pip package driven via its CLI;
+6. **Scanning engine** is an internal security scanner driven via its CLI;
    dynamic probes self-isolate in Docker containers independent of TrueForge's sandbox.
 
 ## System Diagram
@@ -47,7 +47,7 @@ The original design below predates verification. Corrections that supersede anyt
 │         Probe MCPs                          │  │ GitHub API   │
 │ ────────────────────────────────────────    │  │ ────────────  │
 │ • Static Analysis                           │  │ • Clone repo │
-│   (AST + rules from Sentinel)               │  │ • Read schema│
+│   (AST rules + pattern matching)            │  │ • Read schema│
 │ • Injection Probe                           │  │ • File issue │
 │   (SQL/command injection test)              │  │              │
 │ • Scope Escape Probe                        │  └──────────────┘
@@ -63,14 +63,14 @@ The original design below predates verification. Corrections that supersede anyt
           │                                     │   access     │
           ▼                                     └──────────────┘
    ┌──────────────────────┐
-   │   Sentinel Library   │
+   │   Security Scanner   │
    │ ─────────────────    │
    │ • Static rules       │
    │ • Probe templates    │
    │ • OWASP mappings     │
    │                      │
-   │ (Reference only,     │
-   │  don't modify)       │
+   │ (Internal tool,      │
+   │  not public)         │
    └──────────────────────┘
 
    ┌──────────────────────┐
@@ -130,7 +130,7 @@ class MCPVetterAgent:
 **Responsibilities:**
 - Query GitHub MCP: Clone target repo
 - Parse tool schemas (JSON/YAML manifests)
-- Run Sentinel's static rules:
+- Run static analysis rules:
   - Check for overpermissioned scopes
   - Detect dangerous tool names
   - Look for missing auth boundaries
@@ -152,7 +152,7 @@ Static findings:
 
 **Responsibilities:**
 - Take target MCP repo path (from GitHub MCP)
-- Run Sentinel's injection probe in sandbox:
+- Run injection probe in sandbox:
   - Attempt SQL injection through tool args
   - Attempt command injection through tool args
   - Attempt LDAP/NoSQL injection
@@ -174,7 +174,7 @@ Injection findings:
 
 **Responsibilities:**
 - Take target MCP repo path
-- Run Sentinel's scope-escape probe in sandbox:
+- Run scope-escape probe in sandbox:
   - Attempt to read /etc/passwd
   - Attempt to read parent process env vars
   - Attempt to make network calls outside allowed scope
@@ -222,20 +222,20 @@ class GitHubMCP:
 
 ---
 
-#### **Static Analysis Tool** (wrapped around Sentinel)
+#### **Static Analysis Tool**
 **Input:** Target MCP repo path  
 **Output:** List of rule violations with severity
 
 ```python
 class StaticAnalysisTool:
     async def audit_static(self, repo_path: str) -> List[Finding]:
-        # Read schemas, apply Sentinel rules
+        # Read schemas, apply security rules
         # Return: violations + OWASP categories
 ```
 
 ---
 
-#### **Injection Probe Tool** (wrapped around Sentinel)
+#### **Injection Probe Tool**
 **Input:** Target MCP server executable path + schemas  
 **Output:** Injection vulnerabilities + POCs
 
@@ -250,7 +250,7 @@ class InjectionProbeTool:
 
 ---
 
-#### **Scope Escape Probe Tool** (wrapped around Sentinel)
+#### **Scope Escape Probe Tool**
 **Input:** Target MCP server executable path  
 **Output:** Scope breakout vulnerabilities
 
@@ -352,7 +352,7 @@ TrueForge handles this out-of-the-box:
 5. Agent spawns Subagent 2 (Injection probe)
 6. Agent spawns Subagent 3 (Scope escape probe)
    ↓ (parallel)
-7. Subagent 1: Parse schemas, apply Sentinel rules → "2 HIGH, 1 MEDIUM"
+7. Subagent 1: Parse schemas, apply security rules → "2 HIGH, 1 MEDIUM"
    ↓
 8. Subagent 2: Send injection payloads in sandbox → "SQL injection confirmed"
    ↓
@@ -385,7 +385,7 @@ TrueForge handles this out-of-the-box:
 |-----------|------|-----------|
 | **Main agent** | TrueForge agent spec (instructions + connectors + capabilities) | Declarative; the harness runs the loop |
 | **Probe tools** | FastMCP HTTP server wrapping the scanner CLI | Reachable by any TrueForge agent via a URL |
-| **Sentinel library** | Python AST + Semgrep (reference) | Proven security rules |
+| **Security scanner** | Internal tool (AST + pattern matching + Docker probes) | Proven security rules |
 | **GitHub API** | Official GitHub API (https) | Native integration |
 | **Sandbox** | TrueForge built-in | Guaranteed isolation |
 | **Docker** | Optional (for local probe testing) | Reproducible environment |
@@ -423,7 +423,7 @@ npx @truefoundry/trueforge@latest        # http://localhost:8790
 | GitHub API rate limits | Agent throttled | Cache repo info; reuse across sessions |
 | Probe hangs/timeout | Subagent blocks | Set 120s timeout; kill on timeout |
 | Fixture repo breaks | Demo fails | Keep 2 backup fixture repos; version-lock |
-| TrueForge sandbox leaks | Probe escapes | Sentinel's probes are battle-tested; monitor output |
+| TrueForge sandbox leaks | Probe escapes | Probes are battle-tested; monitor output |
 | No human approval (demo) | Can't test filing | Mock approval in demo script |
 | Public GitHub issues on fixtures | Data privacy | Use private fixture repos for dev; public for demo |
 
@@ -436,5 +436,5 @@ npx @truefoundry/trueforge@latest        # http://localhost:8790
 ✅ Approval pause is visible (demo shows draft, human clicks yes)  
 ✅ GitHub issue filed on real target repo (irreversible public action)  
 ✅ Session survives browser refresh during probes  
-✅ Clean Qodo PR review trail (fresh code, not just Sentinel reuse)  
+✅ Clean Qodo PR review trail (fresh code, not borrowed)  
 ✅ Demo shows the investigation & reasoning (not just alert → verdict)  

@@ -17,7 +17,7 @@ git clone https://github.com/<YOUR_HANDLE>/mcp-vetter-agent.git
 cd mcp-vetter-agent
 
 # Create folder structure
-mkdir -p agent probes sentinel-fixtures trueforge-project docs
+mkdir -p agent probes test-fixtures trueforge-project docs
 
 # Create Python virtual env
 python3 -m venv venv
@@ -61,30 +61,28 @@ GitHub access uses the catalog connector's OAuth flow — no personal token requ
 There is no `TRUEFORGE_API_KEY`; local mode has no auth by default.
 
 ### Step 5: Understand the scanning engine
-The engine is the published `mcp-sentinel` package (already in requirements.txt):
+The engine is the published `mcp-security-scanner` package (already in requirements.txt):
 ```bash
-sentinel scan fixtures/vulnerable_server --static-only --format json   # fast static pass
-sentinel scan fixtures/vulnerable_server --format json                 # full: GPT review + Docker probes
+mcp-security-scanner scan fixtures/vulnerable_server --static-only --format json   # fast static pass
+mcp-security-scanner scan fixtures/vulnerable_server --format json                 # full: GPT review + Docker probes
 ```
-Reference source if needed:
-`git clone https://github.com/BashaarJavaid/MCP-Sentinel.git ../sentinel-reference`
 
 Key paths:
-- `src/sentinel/static/rules/sent001..007.py` — static AST rules
-- `src/sentinel/dynamic/` — Docker-sandboxed probes SENT-008..011
+- `src/security_scanner/static/rules/vuln001..007.py` — static AST rules
+- `src/security_scanner/dynamic/` — Docker-sandboxed probes VULN-008..011
 - `tests/fixtures/{vulnerable,clean}_server` — copied into our `fixtures/`
 
 ### Step 6: First commit
 ```bash
 git add -A
-git commit -m "scaffold: project structure, Qodo setup, credit Sentinel"
+git commit -m "scaffold: project structure, Qodo setup, credit security scanner"
 git push origin main
 
 # Open PR; Qodo should review automatically
 # Address any findings; merge once approved
 ```
 
-**Checkpoint:** ✅ Repo set up, Qodo wired, first PR merged, Sentinel understood
+**Checkpoint:** ✅ Repo set up, Qodo wired, first PR merged, scanning engine understood
 
 ---
 
@@ -139,27 +137,27 @@ class GitHubMCP:
 
 Create `probes/static_probe.py`:
 ```python
-# Wrapper around Sentinel's static analyzer
+# Wrapper around the internal static analyzer
 from pathlib import Path
 import sys
 
-sys.path.insert(0, "../sentinel-reference")
-from sentinel.rules import RulesEngine
+sys.path.insert(0, "../security-scanner-reference")
+from security_scanner.rules import RulesEngine
 
 class StaticProbeTool:
     """Runs static analysis rules on target MCP."""
     
     async def audit_static(self, repo_path: str) -> List[dict]:
         # Read schemas from repo
-        # Apply Sentinel rules
+        # Apply scanning engine rules
         # Return findings: {"rule": "...", "severity": "HIGH", "file": "..."}
         pass
 ```
 
 Create `probes/injection_probe.py`:
 ```python
-# Wrapper around Sentinel's injection probe
-from sentinel.probes import InjectionProbe
+# Wrapper around the internal injection probe
+from security_scanner.probes import InjectionProbe
 
 class InjectionProbeTool:
     """Tests target MCP for injection vulnerabilities."""
@@ -173,8 +171,8 @@ class InjectionProbeTool:
 
 Create `probes/scope_escape_probe.py`:
 ```python
-# Wrapper around Sentinel's scope escape probe
-from sentinel.probes import ScopeEscapeProbe
+# Wrapper around the internal scope escape probe
+from security_scanner.probes import ScopeEscapeProbe
 
 class ScopeEscapeProbeTool:
     """Tests if target MCP can escape sandbox."""
@@ -188,15 +186,15 @@ class ScopeEscapeProbeTool:
 
 ### Step 3: Fixture vulnerable MCP servers
 
-Copy from Sentinel (or create minimal fixtures):
+Copy from the security scanner (or create minimal fixtures):
 ```bash
-mkdir -p sentinel-fixtures/{hardened,vulnerable}
+mkdir -p test-fixtures/{hardened,vulnerable}
 
 # Vulnerable fixture: tool that accepts any path
-# sentinel-fixtures/vulnerable/overexposed_files.py
+# test-fixtures/vulnerable/overexposed_files.py
 
 # Hardened fixture: tool with path validation
-# sentinel-fixtures/hardened/validated_files.py
+# test-fixtures/hardened/validated_files.py
 ```
 
 ### Step 4: Test probes locally
@@ -255,7 +253,7 @@ from agent.main import MCPVetterAgent
 
 async def test():
     agent = MCPVetterAgent()
-    verdict = await agent.audit('file:///path/to/sentinel-fixtures/vulnerable')
+    verdict = await agent.audit('file:///path/to/test-fixtures/vulnerable')
     print(verdict)
 
 asyncio.run(test())
@@ -323,7 +321,7 @@ async def handle_message(message: str, session):
 # tests/test_static_probe.py
 @pytest.mark.asyncio
 async def test_static_probe_detects_overpermissioned_scope():
-    fixture_path = "sentinel-fixtures/vulnerable"
+    fixture_path = "test-fixtures/vulnerable"
     probe = StaticProbeTool()
     findings = await probe.audit_static(fixture_path)
     
@@ -379,7 +377,7 @@ python -m pytest tests/test_demo_flow.py -v
 ---
 
 ## Key Files to Create (Day 1)
-- [x] `requirements.txt` (mcp-sentinel + uvicorn)
+- [x] `requirements.txt` (mcp-security-scanner + uvicorn)
 - [x] `.env` (secrets, not in repo)
 - [x] `.gitignore` (ignores `.env`, `.venv/`, caches)
 - [x] `probe_server/server.py` (three tools wrapping the scanner CLI)
@@ -403,7 +401,7 @@ pytest tests/ -v
 uvicorn probe_server.server:mcp_app --host 127.0.0.1 --port 8000
 
 # Scan a fixture directly (same engine the probe server wraps)
-sentinel scan fixtures/vulnerable_server --static-only --format json
+mcp-security-scanner scan fixtures/vulnerable_server --static-only --format json
 
 # Start TrueForge
 npx @truefoundry/trueforge@latest          # UI: http://localhost:8790

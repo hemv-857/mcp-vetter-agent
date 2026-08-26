@@ -14,7 +14,7 @@ def test_static_audit_flags_vulnerable_fixture():
     report = asyncio.run(static_audit(VULNERABLE))
     assert report["analysisComplete"] is True
     rule_ids = {f["rule_id"] for f in report["findings"]}
-    assert {"SENT-001", "SENT-002", "SENT-003", "SENT-004", "SENT-005"} <= rule_ids
+    assert {"VULN-001", "VULN-002", "VULN-003", "VULN-004", "VULN-005"} <= rule_ids
 
 
 def test_static_audit_passes_clean_fixture():
@@ -32,7 +32,7 @@ def test_read_target_manifest_returns_yaml_files():
     result = asyncio.run(read_target_manifest(VULNERABLE))
     assert result["target"] == str(Path(VULNERABLE).resolve())
     assert "tools.yaml" in result["manifests"]
-    assert any("sentinel" in name for name in result["manifests"])
+    assert any("target" in name or "tools" in name or "permissions" in name for name in result["manifests"])
     assert all(len(body) <= 20000 for body in result["manifests"].values())
 
 

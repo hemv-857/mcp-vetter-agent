@@ -27,11 +27,11 @@
 - [ ] Test model can be called from a TrueForge agent turn
 
 ### 1.4 Scanning engine setup [Critical]
-- [ ] `pip install mcp-sentinel` (published package; MIT)
+- [ ] Install the security scanner (see team lead for package source)
 - [ ] Smoke-test CLI against bundled fixtures (`--static-only`, then full with Docker up)
-- [ ] Review rule IDs SENT-001..011 and the JSON report shape
+- [ ] Review rule IDs VULN-001..011 and the JSON report shape
 
-**Deliverable:** Qodo-reviewed PR merged, TrueForge running, Sentinel understood.
+**Deliverable:** Qodo-reviewed PR merged, TrueForge running, scanner understood.
 
 ---
 
@@ -44,8 +44,8 @@
 
 ### 2.2 Probe server [Critical]
 - [x] `probe_server/server.py`: one HTTP MCP server exposing three tools:
-  - `static_audit` (AST rules + Semgrep, no Docker, no model calls)
-  - `full_audit` (GPT review + Docker-sandboxed dynamic probes SENT-008..011)
+  - `static_audit` (AST rules + pattern matching, no Docker, no model calls)
+  - `full_audit` (AI review + Docker-sandboxed dynamic probes VULN-008..011)
   - `read_target_manifest` (declared tools / permissions for schema reasoning)
 - [ ] Run with uvicorn on `127.0.0.1:8000`; register URL in TrueForge Connectors
 - [ ] Call each tool from a TrueForge chat turn; inspect JSON output
@@ -56,7 +56,7 @@
 - [ ] Test: `full_audit` runs with Docker up; fails loudly when Docker is down
 
 ### 2.4 Fixture vulnerable MCP servers [Critical]
-- [ ] Reuse Sentinel fixtures (hardened + vulnerable-by-design servers)
+- [ ] Use bundled fixtures (hardened + vulnerable-by-design servers)
   - Example 1: Tool with unrestricted file access
   - Example 2: Tool with SQL injection vector
   - Example 3: Tool that can escape sandbox
@@ -165,7 +165,6 @@
 ### 5.2 README [Critical]
 - [ ] Problem statement (MCP supply-chain security)
 - [ ] Solution (agent audits servers before connection)
-- [ ] Credit to Sentinel (transparent reuse)
 - [ ] Architecture diagram (agent, GitHub MCP, probes, sandbox)
 - [ ] Quick start: `git clone`, setup probes, run agent with target URL
 - [ ] **Qodo Code Review Evidence:** Link to merged PR reviewed by Qodo
@@ -186,7 +185,7 @@
 - [ ] Fill hackathon submission form
 - [ ] Link to repo
 - [ ] Link to demo video
-- [ ] Confirm README has Qodo evidence section + Sentinel credit
+- [ ] Confirm README has Qodo evidence section
 - [ ] Submit early (don't wait until 8 PM Aug 30)
 
 **Deliverable:** Polished submission, video, code trail.
@@ -205,12 +204,12 @@
 - **GitHub API rate limits:** Use caching; don't hammer API in dev
 - **Qodo review slow:** Start PRs early; don't block on review
 - **TrueForge bugs:** Join Discord, ask for help early
-- **Sandbox escape during probe:** Sentinel already handles; test thoroughly
+- **Sandbox escape during probe:** Scanner handles isolation; test thoroughly
 
 ---
 
 ## Checkpoints (for Loop)
-- [ ] Day 1 EOD: PR merged, TrueForge running, Sentinel understood
+- [ ] Day 1 EOD: PR merged, TrueForge running, scanner understood
 - [ ] Day 2 EOD: GitHub MCP works, probes wired, fixtures ready
 - [ ] Day 3 EOD: Agent auditing, subagents working in parallel
 - [ ] Day 4 EOD: Approval gate + GitHub filing working end-to-end

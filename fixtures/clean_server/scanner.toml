@@ -1,5 +1,5 @@
-[rules.SENT-004]
+[rules.VULN-004]
 sanitizers = ["server.sanitize_tool_text"]
 
-[rules.SENT-006]
+[rules.VULN-006]
 public_routes = ["GET /health"]

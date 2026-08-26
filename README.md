@@ -11,13 +11,13 @@ User: "audit https://github.com/someone/some-mcp-server"
   └─ TrueForge agent (mcp-vetter)
        ├─ clone_target          ── shallow-clones the GitHub URL onto the probe host
        ├─ read_target_manifest   ── declared tools & permission boundaries
-       ├─ subagent: static_audit ── AST rules + Semgrep (SENT-001..007)
-       ├─ subagent: full_audit   ── GPT review + Docker probes (SENT-008..011)
+       ├─ subagent: static_audit ── AST rules + pattern matching (VULN-001..007)
+       ├─ subagent: full_audit   ── AI review + Docker probes (VULN-008..011)
        ├─ Synthesizes verdict (HIGH/MEDIUM/LOW, OWASP Agentic Top 10 mapped)
        └─ ⏸ PAUSES before filing the GitHub security issue → human approves → files
 ```
 
-- **Probes run in isolation**: Sentinel's dynamic probes execute the target server inside throwaway Docker containers.
+- **Probes run in isolation**: Dynamic probes execute the target server inside throwaway Docker containers.
 - **Approval gate is native TrueForge HITL**: issue creation is a write/destructive action, so the harness pauses for Allow/Deny.
 - **Sessions survive reconnects**: refresh mid-audit; the agent keeps working.
 
@@ -53,7 +53,7 @@ Try it against the bundled fixtures first:
 
 ```
 probe_server/    MCP server exposing the scanning engine as agent tools
-fixtures/        Vulnerable + hardened reference MCP servers (from Sentinel, MIT)
+fixtures/        Vulnerable + hardened reference MCP servers
 deploy/          TrueForge agent manifest (agent spec via API)
 docs/            PRD, architecture, week plan, setup guide
 ```
@@ -68,12 +68,12 @@ Every substantive change in this repository went through a pull request reviewed
 
 | Round | Findings | Outcome |
 | --- | --- | --- |
-| Initial review | 2 High, 5 Medium | Fixed: added `clone_target` tool so GitHub targets are materialized on the probe host instead of an unreachable sandbox path (High); symlink + containment hardening in manifest reads to stop host-file disclosure while auditing malicious repos (High); process-group kill + reap on scan timeouts; structured error dicts at every boundary; async Docker preflight; scanner dependency pinned to an immutable commit |
+| Initial review | 2 High, 5 Medium | Fixed: added `clone_target` tool so GitHub targets are materialized on the probe host instead of an unreachable sandbox path (High); symlink + containment hardening in manifest reads to stop host-file disclosure while auditing malicious repos (High); process-group kill + reap on scan timeouts; structured error dicts at every boundary; async Docker preflight |
 | Re-review of fixes | 3 High, 1 Medium | Fixed: standard GitHub URLs without `.git` were wrongly rejected; clone timeouts left orphaned git processes; private-network (SSRF) targets refused; stale temp clones swept off-thread |
 | Third pass | 3 Medium | Fixed: malformed URLs return error dicts instead of raising; cancellation reaps the clone process tree; all cleanup moved off the event loop |
 | Final pass | **0 findings** | Clean |
 
-**One finding was dismissed with a recorded reason:** the clean fixture's zero-value integrity digest ([comment on the PR](https://github.com/hemv-857/mcp-vetter-agent/pull/1#issuecomment-5421705111)) — it ships that way upstream in the MIT-licensed engine we consume, and the code path involved is never exercised by our tools, so we kept our fixtures identical to upstream rather than forking them.
+**One finding was dismissed with a recorded reason:** the clean fixture's zero-value integrity digest ([comment on the PR](https://github.com/hemv-857/mcp-vetter-agent/pull/1#issuecomment-5421705111)) — it ships that way upstream, and the code path involved is never exercised by our tools, so we kept our fixtures identical to upstream rather than forking them.
 
 The PR history shows each review, the commits addressing its findings, and follow-up reviews confirming resolution against the final code.
 

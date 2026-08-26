@@ -49,7 +49,7 @@ Type: `Audit https://github.com/hemv-857/mcp-vulnerable-fixture`
 do a separate 10-second clip of it and cut it in at the marked point.)*
 
 ### [1:30–2:00] The verdict
-> "Eight findings: seven static candidates and — the important one — SENT-008,
+> "Eight findings: seven static candidates and — the important one — VULN-008,
 > out-of-scope tool execution, **confirmed** by a live probe in isolation. Static says
 > 'maybe'; the sandbox proves it. The agent separates the two instead of crying wolf."
 

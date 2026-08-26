@@ -1,6 +1,6 @@
-"""Sentinel Probes MCP server.
+"""MCP Vetter probe server.
 
-Exposes MCP Sentinel scans as tools a TrueForge agent can call over HTTP.
+Exposes security scans as tools a TrueForge agent can call over HTTP.
 Every tool always returns a JSON dict - errors are structured values, never raises.
 
 Run:
@@ -34,7 +34,7 @@ FULL_TIMEOUT_SECONDS = 300
 CLONE_TIMEOUT_SECONDS = 120
 _REPORT_EXIT_CODES = (0, 1)  # 0 = clean, 1 = findings at/over fail threshold
 
-mcp = FastMCP("sentinel-probes", host="127.0.0.1", port=8000)
+mcp = FastMCP("mcp-vetter", host="127.0.0.1", port=8000)
 
 
 async def _docker_available() -> bool:
@@ -67,7 +67,7 @@ def _resolve_target(target_dir: str) -> Path:
 async def _run_scan(
     target_dir: str, *extra_flags: str, timeout: int = FULL_TIMEOUT_SECONDS
 ) -> dict[str, Any]:
-    """Run the scanner CLI (`python -m sentinel`) and return the parsed JSON report."""
+    """Run the scanner CLI and return the parsed JSON report."""
     try:
         target = _resolve_target(target_dir)
     except ValueError as error:
@@ -79,7 +79,7 @@ async def _run_scan(
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
-            "sentinel",
+            "security_scanner",
             "scan",
             str(target),
             "--format",
@@ -233,12 +233,12 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
 
 
 @mcp.tool(
-    annotations={"readOnlyHint": True, "title": "Sentinel static analysis"},
+    annotations={"readOnlyHint": True, "title": "Static security analysis"},
 )
 async def static_audit(target_dir: str) -> dict[str, Any]:
     """Fast static security analysis of an MCP server directory.
 
-    Runs Sentinel's AST rules and Semgrep (SENT-001..007): unsafe execution,
+    Runs AST rules and pattern matching (VULN-001..007): unsafe execution,
     hardcoded credentials, missing input validation, excessive permissions,
     insecure prompt construction, missing auth, unverified manifests.
     No Docker and no model calls, so it is cheap and safe to run freely.
@@ -252,14 +252,14 @@ async def static_audit(target_dir: str) -> dict[str, Any]:
 
 
 @mcp.tool(
-    annotations={"readOnlyHint": True, "title": "Sentinel full audit (dynamic probes)"},
+    annotations={"readOnlyHint": True, "title": "Full security audit (dynamic probes)"},
 )
 async def full_audit(target_dir: str, allow_degraded: bool = False) -> dict[str, Any]:
     """Full security audit of an MCP server directory.
 
     Static rules + GPT semantic review + Docker-sandboxed dynamic probes
-    (SENT-008 out-of-scope execution, SENT-009 oversized args, SENT-010
-    injection payloads, SENT-011 malformed schema input).
+    (VULN-008 out-of-scope execution, VULN-009 oversized args, VULN-010
+    injection payloads, VULN-011 malformed schema input).
 
     Requires Docker running on this machine. Uses OPENAI_API_KEY for live
     review unless allow_degraded degrades to needs_review instead of failing.
@@ -277,8 +277,8 @@ async def full_audit(target_dir: str, allow_degraded: bool = False) -> dict[str,
 async def read_target_manifest(target_dir: str) -> dict[str, Any]:
     """Read an MCP server's declared manifests without running anything.
 
-    Returns the contents of sentinel.target.yaml, tools.yaml,
-    sentinel.permissions.yaml and similar YAML files so the agent can reason
+    Returns the contents of target.yaml, tools.yaml,
+    permissions.yaml and similar YAML files so the agent can reason
     about declared tool schemas, scopes, and permission boundaries.
     Symlinks are ignored; nothing outside the target directory is read.
     """

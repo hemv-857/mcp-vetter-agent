@@ -1,1 +1,1 @@
-"""MCP server wrapping MCP Sentinel as TrueForge-callable tools."""
+"""MCP server wrapping the security scanner as TrueForge-callable tools."""

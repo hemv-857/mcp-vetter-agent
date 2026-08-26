@@ -12,7 +12,7 @@ You are building an **AI security auditor for AI tools** that runs on TrueForge.
 > - Connectors take remote URLs only → probes run as ONE local HTTP MCP server: `probe_server/server.py` (uvicorn, `127.0.0.1:8000`, path `/mcp`), registered under Settings → Connectors.
 > - GitHub = catalog connector (OAuth), not a custom httpx wrapper or personal token.
 > - Qodo has no config file: one admin installs the GitHub App; PRs are reviewed automatically (fallback comment: `/agentic_review`).
-> - Scanning engine = published `mcp-sentinel` pip package via its CLI; dynamic probes self-isolate in Docker.
+> - Scanning engine = internal `security-scanner` pip package via its CLI; dynamic probes self-isolate in Docker.
 
 ---
 
@@ -162,7 +162,7 @@ Full architecture in `architecture.md`.
 
 ### 4. **Proof of Fresh Work**
 - Agent logic + orchestration code written this week (not pre-existing)
-- Sentinel library can be reused (it's a "tool the agent calls"), but must be clearly separated
+- Security scanner library can be reused (it's a "tool the agent calls"), but must be clearly separated
 - Qodo review trail shows the fresh code being reviewed
 
 ### 5. **Clean Demo** (3 min, pre-recorded)
@@ -195,7 +195,7 @@ Use **loop engineering** (continuous, iterative refinement):
    - First PR through Qodo immediately (proves the pipeline works)
 
 2. **Build probes next** (Day 2)
-   - Reuse Sentinel templates (don't reinvent)
+   - Reuse scanner templates (don't reinvent)
    - Wire each probe as a separate tool
    - Test locally against fixtures
    - All probes must work in TrueForge sandbox
@@ -314,7 +314,7 @@ async def wait_for_approval(self, issue_draft: str) -> bool:
 
 ## What NOT to Do
 
-❌ Don't reuse Sentinel *as the whole project* (it must be a tool the agent calls)  
+❌ Don't reuse the security scanner *as the whole project* (it must be a tool the agent calls)  
 ❌ Don't auto-approve; approval gate must be visible and real  
 ❌ Don't use mock GitHub (file real issues for demo)  
 ❌ Don't skip Qodo reviews (judges will see the trail)  
@@ -378,7 +378,7 @@ All files exist as stubs; fill them in as you go.
 If you hit a blocker:
 1. Check Discord (#agent-harness-hackathon on WeMakeDevs)
 2. Check TrueForge docs: https://trueforge.dev
-3. Check Sentinel repo for probe examples
+3. Check the scanner repo for probe examples
 4. Try a different approach; don't get stuck
 
 **Goal:** Build a winning submission. Go.

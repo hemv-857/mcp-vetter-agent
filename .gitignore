@@ -6,6 +6,6 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-sentinel-demo-results/
+scan-results/
 .DS_Store
 .github/

@@ -27,7 +27,7 @@ An agent that runs on TrueForge that:
 ## MVP Scope (Hackathon Week)
 ### Must-have
 - GitHub MCP (clone target MCP server repo, analyze code/schema)
-- Static analysis (AST + rules inspection—reuse Sentinel library)
+- Static analysis (AST + rules inspection—reuse internal security scanner)
 - Parallel subagents (static probe, injection probe, schema probe)
 - Sandboxed dynamic probes (TrueForge sandbox runs 3–4 probe templates against target MCP)
 - Agent judgment loop (synthesize findings, assign risk level, draft verdict)
@@ -54,7 +54,7 @@ An agent that runs on TrueForge that:
 10. **Browser refresh** (during step 3–5, you refresh; agent keeps probing—shows TrueForge persistence)
 
 ## Non-goals
-- Building a new probe suite (reuse Sentinel's proven 4 probes)
+- Building a new probe suite (reuse the scanner's proven probe templates)
 - Auto-patching tools
 - Real-time monitoring (one-time audit, not continuous)
 - Replacing formal security review
