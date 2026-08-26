@@ -1,4 +1,4 @@
-# API Reference — MCP Vetter Probe Server
+# API Reference — MCP Vetting Probe Server
 
 The probe server is an MCP (Model Context Protocol) server running on
 `http://127.0.0.1:8000`. It exposes tools via the streamable-HTTP transport
@@ -18,7 +18,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 const transport = new StreamableHTTPClientTransport(
   new URL("http://127.0.0.1:8000/mcp")
 );
-const client = new Client({ name: "mcp-vetter-ui", version: "1.0.0" });
+const client = new Client({ name: "mcp-vetting-ui", version: "1.0.0" });
 await client.connect(transport);
 ```
 

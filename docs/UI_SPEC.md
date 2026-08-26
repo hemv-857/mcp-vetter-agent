@@ -1,8 +1,8 @@
-# UI Specification — MCP Vetter Agent
+# UI Specification — MCP Vetting Agent
 
 ## Overview
 
-A single-page web interface for the MCP Vetter Agent. Users paste a GitHub URL,
+A single-page web interface for the MCP Vetting Agent. Users paste a GitHub URL,
 watch the security audit happen in real time, review findings, approve the draft
 security issue, and see it filed — all in one view.
 
@@ -37,7 +37,7 @@ Single page. No routing.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  MCP Vetter                                    [status bar]  │
+│  MCP Vetting                                    [status bar]  │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │

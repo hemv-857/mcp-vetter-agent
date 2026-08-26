@@ -1,4 +1,4 @@
-# HANDOFF — Build the MCP Vetter UI
+# HANDOFF — Build the MCP Vetting UI
 
 **Read this first.** Everything you need to build the frontend is in this
 directory (`docs/`) or referenced below.
@@ -7,7 +7,7 @@ directory (`docs/`) or referenced below.
 
 ## What This Project Is
 
-MCP Vetter Agent — a security auditor for MCP (Model Context Protocol) servers.
+MCP Vetting Agent — a security auditor for MCP (Model Context Protocol) servers.
 It runs on TrueForge. A user gives it a GitHub URL of an MCP server, it clones
 the repo, runs static + dynamic security scans, shows findings, and (if HIGH/CRITICAL)
 drafts a GitHub security issue. The user approves before it's filed.

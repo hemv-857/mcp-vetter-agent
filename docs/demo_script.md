@@ -8,7 +8,7 @@ tabs; font size up; TrueForge chat UI + a browser tab on the fixture repo side b
 
 - Terminal 1: probe server running (`uvicorn probe_server.server:mcp_app --port 8000`)
 - Terminal 2: TrueForge (`npx @truefoundry/trueforge@latest`)
-- Browser tab A: TrueForge chat, mcp-vetter agent loaded
+- Browser tab A: TrueForge chat, mcp-vetting agent loaded
 - Browser tab B: github.com/hemv-857/mcp-vulnerable-fixture (issues page visible)
 - Docker running (dynamic probes will fire)
 
@@ -17,7 +17,7 @@ tabs; font size up; TrueForge chat UI + a browser tab on the fixture repo side b
 ### [0:00–0:20] The problem
 > "Every agent built this week connects to MCP servers nobody has audited — community
 > tools with hardcoded keys, eval() on arguments, no auth boundaries. Agents don't know
-> to be suspicious. This is **MCP Vetter**: an agent that audits an MCP server BEFORE you
+> to be suspicious. This is **MCP Vetting**: an agent that audits an MCP server BEFORE you
 > trust it — and refuses to take the irreversible step without asking."
 
 **On screen:** keep it on the empty chat.

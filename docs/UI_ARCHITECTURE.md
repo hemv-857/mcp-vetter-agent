@@ -1,4 +1,4 @@
-# UI Architecture — MCP Vetter Agent
+# UI Architecture — MCP Vetting Agent
 
 ## System Overview
 
@@ -156,7 +156,7 @@ const SERVER_URL = "http://127.0.0.1:8000/mcp";
 
 export async function connectToServer(): Promise<Client> {
   const transport = new StreamableHTTPClientTransport(new URL(SERVER_URL));
-  const client = new Client({ name: "mcp-vetter-ui", version: "1.0.0" });
+  const client = new Client({ name: "mcp-vetting-ui", version: "1.0.0" });
   await client.connect(transport);
   return client;
 }

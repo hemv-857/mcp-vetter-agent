@@ -1,6 +1,6 @@
 # OpenCode/Loop Engineering — Continuous Build Prompt
 
-## Project: MCP Vetter Agent
+## Project: MCP Vetting Agent
 
 You are building an **AI security auditor for AI tools** that runs on TrueForge. This project must win the Agent Harness Hackathon (Aug 24–30, 2026).
 

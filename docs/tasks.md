@@ -1,4 +1,4 @@
-# Tasks & Week Plan — MCP Vetter Agent
+# Tasks & Week Plan — MCP Vetting Agent
 
 ## Day 1 (Today) — Scaffold & Foundations
 **Goal:** Repo ready, Qodo wired, first PR reviewed, TrueForge running locally.

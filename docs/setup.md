@@ -1,4 +1,4 @@
-# Setup & Development Guide — MCP Vetter Agent
+# Setup & Development Guide — MCP Vetting Agent
 
 ## Prerequisites
 - Node.js 22.14+ (for TrueForge)

@@ -1,4 +1,4 @@
-# MCP Vetter Agent — PRD
+# MCP Vetting Agent — PRD
 
 ## Problem
 TrueForge agents can connect to *any* MCP server—including untrusted third-party ones from the community. A malicious MCP tool can hijack your agent, exfiltrate data, or escalate privileges. Nobody vets these servers before connection.

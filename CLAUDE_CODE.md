@@ -1,4 +1,4 @@
-# Building MCP Vetter UI with Claude Code
+# Building MCP Vetting UI with Claude Code
 
 **This document tells Claude Code exactly what to build for the frontend UI.**
 

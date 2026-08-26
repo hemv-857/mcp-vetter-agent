@@ -1,4 +1,4 @@
-# Architecture — MCP Vetter Agent
+# Architecture — MCP Vetting Agent
 
 ## Reality check (verified against TrueForge docs, Aug 26)
 

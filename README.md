@@ -1,4 +1,4 @@
-# MCP Vetter Agent
+# MCP Vetting Agent
 
 **An AI security auditor for AI tools.** An agent, running on [TrueForge](https://trueforge.dev), that vets third-party MCP servers for security vulnerabilities *before* you connect them to your agent — then pauses and asks a human before filing a public security report.
 
@@ -8,7 +8,7 @@
 
 ```
 User: "audit https://github.com/someone/some-mcp-server"
-  └─ TrueForge agent (mcp-vetter)
+  └─ TrueForge agent (mcp-vetting)
        ├─ clone_target          ── shallow-clones the GitHub URL onto the probe host
        ├─ read_target_manifest   ── declared tools & permission boundaries
        ├─ subagent: static_audit ── AST rules + pattern matching (VULN-001..007)

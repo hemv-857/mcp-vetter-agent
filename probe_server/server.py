@@ -1,4 +1,4 @@
-"""MCP Vetter probe server.
+"""MCP Vetting probe server.
 
 Exposes security scans as tools a TrueForge agent can call over HTTP.
 Every tool always returns a JSON dict - errors are structured values, never raises.
@@ -34,7 +34,7 @@ FULL_TIMEOUT_SECONDS = 300
 CLONE_TIMEOUT_SECONDS = 120
 _REPORT_EXIT_CODES = (0, 1)  # 0 = clean, 1 = findings at/over fail threshold
 
-mcp = FastMCP("mcp-vetter", host="127.0.0.1", port=8000)
+mcp = FastMCP("mcp-vetting", host="127.0.0.1", port=8000)
 
 
 async def _docker_available() -> bool:
