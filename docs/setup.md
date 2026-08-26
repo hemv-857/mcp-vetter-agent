@@ -46,7 +46,8 @@ UI or created via the HTTP API from `deploy/agent-manifest.json`. Configure once
 - Settings → Models: paste your provider API key
 - Settings → Connectors: Add MCP Server → `http://127.0.0.1:8000/mcp` (our probe server),
   plus the GitHub connector from the catalog (OAuth, no token management)
-- Settings → Sandbox providers: Daytona API key (needed for cloning targets, skills)
+- Settings → Sandbox providers: optional (Daytona, for skills/code mode). Target cloning
+  happens on the probe host via the clone_target tool - no sandbox needed for audits.
 
 ### Step 4: Environment variables
 Model API keys are entered in the TrueForge UI (Settings → Models), not in files.

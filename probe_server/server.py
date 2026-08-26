@@ -14,9 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import re
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -24,25 +29,30 @@ from mcp.server.fastmcp import FastMCP
 
 STATIC_TIMEOUT_SECONDS = 30
 FULL_TIMEOUT_SECONDS = 300
+CLONE_TIMEOUT_SECONDS = 120
 _REPORT_EXIT_CODES = (0, 1)  # 0 = clean, 1 = findings at/over fail threshold
 
 mcp = FastMCP("sentinel-probes", host="127.0.0.1", port=8000)
 
 
-def _docker_available() -> bool:
-    """True when a Docker daemon answers."""
+async def _docker_available() -> bool:
+    """True when a Docker daemon answers. Async so a hung daemon can't stall the loop."""
     if shutil.which("docker") is None:
         return False
-    try:
-        result = subprocess.run(
-            ["docker", "info", "--format", "{{.ServerVersion}}"],
-            capture_output=True,
-            timeout=10,
-            check=False,
-        )
-        return result.returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+
+    def _probe() -> bool:
+        try:
+            result = subprocess.run(
+                ["docker", "info", "--format", "{{.ServerVersion}}"],
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+            return result.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
+    return await asyncio.to_thread(_probe)
 
 
 def _resolve_target(target_dir: str) -> Path:
@@ -61,22 +71,34 @@ async def _run_scan(
     except ValueError as error:
         return {"error": str(error)}
 
-    proc = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "sentinel",
-        "scan",
-        str(target),
-        "--format",
-        "json",
-        *extra_flags,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    # ponytail: process-group kill handles scanner children; Docker containers
+    # launched by dynamic probes are the scanner's own cleanup responsibility.
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-m",
+            "sentinel",
+            "scan",
+            str(target),
+            "--format",
+            "json",
+            *extra_flags,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
+        )
+    except OSError as error:
+        return {"error": f"failed to launch scanner: {error}"}
+
+    async def _reap() -> None:
+        with suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        await proc.wait()
+
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill()
+        await _reap()
         return {
             "error": f"scan timed out after {timeout}s",
             "timeout": True,
@@ -94,6 +116,51 @@ async def _run_scan(
     except json.JSONDecodeError:
         return {"error": "invalid scanner output", "parse_failed": True}
     return report
+
+
+_HTTPS_URL = re.compile(r"^https://[\w.-]+(:\d{2,5})?/[\w./~%+-]+?\.git/?$")
+
+
+@mcp.tool(
+    annotations={"readOnlyHint": False, "title": "Clone audit target"},
+)
+async def clone_target(repo_url: str) -> dict[str, Any]:
+    """Clone a public git repository onto this host so it can be scanned.
+
+    Returns {"target": "<local path>"} - pass that path to static_audit,
+    full_audit and read_target_manifest. HTTPS URLs only, shallow clone,
+    hard 120s limit. The clone lives in a fresh temp directory per call.
+    """
+    if not _HTTPS_URL.match(repo_url.strip()):
+        return {"error": "only https git repository URLs are accepted", "url": repo_url}
+
+    dest = tempfile.mkdtemp(prefix="vetted-")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--quiet",
+            repo_url.strip(),
+            dest + "/repo",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
+        )
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=CLONE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        shutil.rmtree(dest, ignore_errors=True)
+        return {"error": f"clone timed out after {CLONE_TIMEOUT_SECONDS}s", "timeout": True}
+    except OSError as error:
+        shutil.rmtree(dest, ignore_errors=True)
+        return {"error": f"failed to launch git: {error}"}
+
+    if proc.returncode != 0:
+        tail = stderr.decode(errors="replace")[-500:]
+        shutil.rmtree(dest, ignore_errors=True)
+        return {"error": "git clone failed", "git_stderr_tail": tail}
+    return {"target": dest + "/repo"}
 
 
 @mcp.tool(
@@ -129,7 +196,7 @@ async def full_audit(target_dir: str, allow_degraded: bool = False) -> dict[str,
     review unless allow_degraded degrades to needs_review instead of failing.
     Slow: budget up to 5 minutes per scan.
     """
-    if not _docker_available():
+    if not await _docker_available():
         return {"error": "Docker required for dynamic probes", "docker_available": False}
     flags = ["--allow-degraded"] if allow_degraded else []
     return await _run_scan(target_dir, *flags, timeout=FULL_TIMEOUT_SECONDS)
@@ -144,6 +211,7 @@ async def read_target_manifest(target_dir: str) -> dict[str, Any]:
     Returns the contents of sentinel.target.yaml, tools.yaml,
     sentinel.permissions.yaml and similar YAML files so the agent can reason
     about declared tool schemas, scopes, and permission boundaries.
+    Symlinks are ignored; nothing outside the target directory is read.
     """
     try:
         target = _resolve_target(target_dir)
@@ -151,11 +219,19 @@ async def read_target_manifest(target_dir: str) -> dict[str, Any]:
         return {"error": str(error)}
 
     manifests: dict[str, str] = {}
+    skipped: list[str] = []
     for pattern in ("*.yaml", "*.yml"):
         for path in sorted(target.glob(pattern)):
-            if path.is_file():
+            if path.is_symlink() or not path.is_file():
+                continue
+            real = Path(os.path.realpath(path))
+            if not real.is_relative_to(target):
+                continue  # never read anything that resolves outside the target
+            try:
                 manifests[path.name] = path.read_text(encoding="utf-8")[:20000]
-    return {"target": str(target), "manifests": manifests}
+            except (OSError, UnicodeDecodeError) as error:
+                skipped.append(f"{path.name}: {type(error).__name__}")
+    return {"target": str(target), "manifests": manifests, "skipped": skipped}
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -163,7 +239,7 @@ async def health(request: Any) -> Any:
     """Liveness plus Docker availability (dynamic probes depend on it)."""
     from starlette.responses import JSONResponse
 
-    return JSONResponse({"status": "ok", "docker_available": _docker_available()})
+    return JSONResponse({"status": "ok", "docker_available": await _docker_available()})
 
 
 def main() -> None:

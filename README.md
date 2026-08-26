@@ -9,7 +9,7 @@
 ```
 User: "audit https://github.com/someone/some-mcp-server"
   └─ TrueForge agent (mcp-vetter)
-       ├─ Clones the target repo (sandbox shell + GitHub connector)
+       ├─ clone_target          ── shallow-clones the GitHub URL onto the probe host
        ├─ read_target_manifest   ── declared tools & permission boundaries
        ├─ subagent: static_audit ── AST rules + Semgrep (SENT-001..007)
        ├─ subagent: full_audit   ── GPT review + Docker probes (SENT-008..011)
@@ -36,7 +36,7 @@ npx @truefoundry/trueforge@latest                                   # UI at http
 #    Settings → Models      : configure a provider (API key)
 #    Settings → Connectors  : Add MCP Server → http://127.0.0.1:8000/mcp
 #                             (+ GitHub connector from the catalog, OAuth)
-#    Settings → Sandbox     : configure Daytona (needed for cloning targets)
+#    Settings → Sandbox     : optional (skills/code mode); cloning runs on the probe host
 #    Create agent           : import deploy/agent-manifest.json via API, or compose in UI
 
 # 4. Chat: "audit ./fixtures/vulnerable_server"

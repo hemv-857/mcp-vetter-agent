@@ -40,6 +40,6 @@ def test_lists_three_read_only_tools(server):
 
     tools = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(main())
     names = {t.name for t in tools.tools}
-    assert names == {"static_audit", "full_audit", "read_target_manifest"}
+    assert names == {"static_audit", "full_audit", "read_target_manifest", "clone_target"}
     for tool in tools.tools:
-        assert tool.annotations.readOnlyHint is True
+        assert tool.annotations.readOnlyHint == (tool.name != "clone_target")
