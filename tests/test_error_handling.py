@@ -112,11 +112,122 @@ def test_health_endpoint_reports_docker_status():
     assert isinstance(body["docker_available"], bool)
 
 
-def test_clone_target_rejects_non_https_urls():
-    for bad in ("http://github.com/a/b", "git@github.com:a/b.git", "file:///etc/passwd", "nonsense"):
+def test_clone_target_rejects_bad_urls():
+    for bad in (
+        "http://github.com/a/b",
+        "git@github.com:a/b.git",
+        "file:///etc/passwd",
+        "nonsense",
+        "https://github.com/only-owner",
+    ):
         result = asyncio.run(srv.clone_target(bad))
         assert "error" in result
-        assert "https" in result["error"]
+
+
+def test_clone_target_blocks_private_networks():
+    for ssrf in (
+        "https://127.0.0.1/x/y",
+        "https://localhost/x/y",
+        "https://10.1.2.3/x/y",
+        "https://192.168.1.5/x/y",
+        "https://172.16.0.9/x/y",
+        "https://169.254.169.254/latest/meta-data",
+        "https://myhost.internal/x/y",
+        "https://nas.local/x/y",
+    ):
+        result = asyncio.run(srv.clone_target(ssrf))
+        assert "error" in result
+        assert "private" in result["error"] or "https" in result["error"]
+
+
+def test_clone_target_accepts_standard_github_urls(monkeypatch):
+    calls = []
+
+    class OkProc:
+        pid = 1
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*args, **kwargs):
+        calls.append(args)
+        return OkProc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    # with and without .git suffix - both are standard
+    for url in (
+        "https://github.com/owner/repo.git",
+        "https://github.com/owner/repo",
+        "https://gitlab.com/group/sub/repo/",
+    ):
+        result = asyncio.run(srv.clone_target(url))
+        assert "error" not in result, (url, result)
+        assert result["target"].endswith("/repo")
+    assert len(calls) == 3
+    assert "--depth" in calls[0]
+
+
+def test_clone_timeout_kills_process_group(monkeypatch):
+    killed = []
+    monkeypatch.setattr(srv.os, "killpg", lambda pgid, sig: killed.append((pgid, sig)))
+    monkeypatch.setattr(srv, "CLONE_TIMEOUT_SECONDS", 0)
+
+    class SlowProc:
+        pid = 424242
+
+        def __init__(self):
+            self.event = asyncio.Event()
+
+        async def communicate(self):
+            await asyncio.sleep(30)
+            return b"", b""
+
+        async def wait(self):
+            return 0
+
+    proc = SlowProc()
+
+    async def fake_exec(*args, **kwargs):
+        return proc
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    result = asyncio.run(srv.clone_target("https://github.com/owner/repo"))
+    assert result.get("timeout") is True
+    assert killed == [(proc.pid, signal.SIGKILL)]
+
+
+def test_clone_sweeps_stale_temp_dirs(monkeypatch, tmp_path):
+    stale = tmp_path / "vetted-old"
+    fresh = tmp_path / "vetted-new"
+    stale.mkdir()
+    fresh.mkdir()
+    old = __import__("time").time() - 172800  # two days ago
+    import os as os_mod
+
+    os_mod.utime(stale, (old, old))
+
+    class OkProc:
+        pid = 1
+        returncode = 0
+
+        async def communicate(self):
+            return b"", b""
+
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*args, **kwargs):
+        return OkProc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(srv.tempfile, "tempdir", str(tmp_path))
+    asyncio.run(srv.clone_target("https://github.com/owner/repo"))
+    assert not stale.exists()  # swept
+    assert fresh.exists()  # recent clones survive
 
 
 def test_clone_target_accepts_valid_url_shape(monkeypatch):

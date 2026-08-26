@@ -21,9 +21,11 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from mcp.server.fastmcp import FastMCP
 
@@ -118,7 +120,47 @@ async def _run_scan(
     return report
 
 
-_HTTPS_URL = re.compile(r"^https://[\w.-]+(:\d{2,5})?/[\w./~%+-]+?\.git/?$")
+def _sweep_old_clones(max_age_seconds: int = 86400) -> None:
+    """Best-effort disk reclamation for clones abandoned by earlier audits.
+
+    ponytail: mtime-based sweep, not refcounting - per-target cleanup hooks
+    only if tempdir growth ever becomes measurable.
+    """
+    now = time.time()
+    for path in Path(tempfile.gettempdir()).glob("vetted-*"):
+        try:
+            if now - path.stat().st_mtime > max_age_seconds:
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            continue
+
+
+def _validate_clone_url(repo_url: str) -> str | None:
+    """Return an error string for disallowed URLs, else None (URL is acceptable)."""
+    parts = urlsplit(repo_url.strip())
+    if parts.scheme != "https" or not parts.hostname:
+        return "only https git repository URLs are accepted"
+    host = parts.hostname.lower()
+    private = host in ("localhost", "metadata", "metadata.google.internal") or (
+        host.endswith((".local", ".internal", ".lan", ".home", ".corp"))
+    )
+    if not private and re.match(r"^(\d{1,3}\.){3}\d{1,3}$", host):
+        # raw IPv4: reject RFC1918/loopback/link-local; public IPs are fine
+        octets = [int(o) for o in host.split(".")]
+        private = (
+            octets[0] == 127
+            or octets[0] == 10
+            or (octets[0] == 192 and octets[1] == 168)
+            or (octets[0] == 172 and 16 <= octets[1] <= 31)
+            or (octets[0] == 169 and octets[1] == 254)
+            or octets[0] == 0
+        )
+    if private:
+        return "refusing to clone from a private or local network address"
+    segments = [s for s in parts.path.split("/") if s]
+    if len(segments) < 2:
+        return "URL must point at a repository (owner/repo)"
+    return None
 
 
 @mcp.tool(
@@ -127,12 +169,15 @@ _HTTPS_URL = re.compile(r"^https://[\w.-]+(:\d{2,5})?/[\w./~%+-]+?\.git/?$")
 async def clone_target(repo_url: str) -> dict[str, Any]:
     """Clone a public git repository onto this host so it can be scanned.
 
-    Returns {"target": "<local path>"} - pass that path to static_audit,
-    full_audit and read_target_manifest. HTTPS URLs only, shallow clone,
-    hard 120s limit. The clone lives in a fresh temp directory per call.
+    Accepts standard https URLs with or without a .git suffix. Returns
+    {"target": "<local path>"} - pass that path to static_audit,
+    full_audit and read_target_manifest. Shallow clone, hard 120s limit,
+    fresh temp directory per call, private-network addresses refused.
     """
-    if not _HTTPS_URL.match(repo_url.strip()):
-        return {"error": "only https git repository URLs are accepted", "url": repo_url}
+    error = _validate_clone_url(repo_url)
+    if error:
+        return {"error": error, "url": repo_url}
+    _sweep_old_clones()
 
     dest = tempfile.mkdtemp(prefix="vetted-")
     try:
@@ -148,13 +193,26 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
         )
-        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=CLONE_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
-        shutil.rmtree(dest, ignore_errors=True)
-        return {"error": f"clone timed out after {CLONE_TIMEOUT_SECONDS}s", "timeout": True}
     except OSError as error:
         shutil.rmtree(dest, ignore_errors=True)
         return {"error": f"failed to launch git: {error}"}
+
+    async def _reap() -> None:
+        with suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        await proc.wait()
+
+    try:
+        _, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=CLONE_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError:
+        await _reap()
+        shutil.rmtree(dest, ignore_errors=True)
+        return {
+            "error": f"clone timed out after {CLONE_TIMEOUT_SECONDS}s",
+            "timeout": True,
+        }
 
     if proc.returncode != 0:
         tail = stderr.decode(errors="replace")[-500:]
