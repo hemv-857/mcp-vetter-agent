@@ -122,6 +122,12 @@
 - [ ] Optionally tighten per-server with `require_approval_for_tools` in the agent spec
 - [ ] Verify: issue appears on fixture repo after clicking Allow
 
+**Verify native approval gate works:**
+- TrueForge automatically pauses when tool is `write/destructive` (GitHub's create_issue is)
+- Shows Allow/Deny buttons in the chat UI
+- Continues on Allow, stops on Deny
+- No custom approval code needed
+
 ### 4.3 End-to-end test [Critical]
 - [ ] Point agent at vulnerable fixture server
 - [ ] Agent runs full audit (static + 3 dynamic probes)
