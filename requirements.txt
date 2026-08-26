@@ -1,0 +1,5 @@
+# NOTE: the PyPI package named `mcp-sentinel` is an unrelated MCP test framework.
+# The scanning engine lives on GitHub (console script: `sentinel`).
+# Pinned to an immutable commit - supply-chain rule from our own Qodo review.
+mcp-sentinel @ git+https://github.com/BashaarJavaid/MCP-Sentinel.git@e717e955210b1d2a3e9fb1cdc266587c77ffebf3
+uvicorn>=0.30

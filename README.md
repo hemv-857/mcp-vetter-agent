@@ -9,7 +9,7 @@
 ```
 User: "audit https://github.com/someone/some-mcp-server"
   └─ TrueForge agent (mcp-vetter)
-       ├─ Clones the target repo (sandbox shell + GitHub connector)
+       ├─ clone_target          ── shallow-clones the GitHub URL onto the probe host
        ├─ read_target_manifest   ── declared tools & permission boundaries
        ├─ subagent: static_audit ── AST rules + Semgrep (SENT-001..007)
        ├─ subagent: full_audit   ── GPT review + Docker probes (SENT-008..011)
@@ -36,7 +36,7 @@ npx @truefoundry/trueforge@latest                                   # UI at http
 #    Settings → Models      : configure a provider (API key)
 #    Settings → Connectors  : Add MCP Server → http://127.0.0.1:8000/mcp
 #                             (+ GitHub connector from the catalog, OAuth)
-#    Settings → Sandbox     : configure Daytona (needed for cloning targets)
+#    Settings → Sandbox     : optional (skills/code mode); cloning runs on the probe host
 #    Create agent           : import deploy/agent-manifest.json via API, or compose in UI
 
 # 4. Chat: "audit ./fixtures/vulnerable_server"
@@ -60,9 +60,22 @@ docs/            PRD, architecture, week plan, setup guide
 
 ## Qodo Code Review Evidence
 
-<!-- TODO(day 1): link at least one merged PR reviewed by Qodo, describe what it
-     surfaced and what was changed or intentionally dismissed, and show the
-     follow-up review against the final code. -->
+Every substantive change in this repository went through a pull request reviewed by [Qodo](https://www.qodo.ai) before merge — starting from the first day of the hackathon.
+
+**Representative reviewed PR:** [#1 — feat: probe server, fixtures, tests, TrueForge agent spec](https://github.com/hemv-857/mcp-vetter-agent/pull/1)
+
+**What Qodo surfaced and what we did about it** (full trail visible on the PR):
+
+| Round | Findings | Outcome |
+| --- | --- | --- |
+| Initial review | 2 High, 5 Medium | Fixed: added `clone_target` tool so GitHub targets are materialized on the probe host instead of an unreachable sandbox path (High); symlink + containment hardening in manifest reads to stop host-file disclosure while auditing malicious repos (High); process-group kill + reap on scan timeouts; structured error dicts at every boundary; async Docker preflight; scanner dependency pinned to an immutable commit |
+| Re-review of fixes | 3 High, 1 Medium | Fixed: standard GitHub URLs without `.git` were wrongly rejected; clone timeouts left orphaned git processes; private-network (SSRF) targets refused; stale temp clones swept off-thread |
+| Third pass | 3 Medium | Fixed: malformed URLs return error dicts instead of raising; cancellation reaps the clone process tree; all cleanup moved off the event loop |
+| Final pass | **0 findings** | Clean |
+
+**One finding was dismissed with a recorded reason:** the clean fixture's zero-value integrity digest ([comment on the PR](https://github.com/hemv-857/mcp-vetter-agent/pull/1#issuecomment-5421705111)) — it ships that way upstream in the MIT-licensed engine we consume, and the code path involved is never exercised by our tools, so we kept our fixtures identical to upstream rather than forking them.
+
+The PR history shows each review, the commits addressing its findings, and follow-up reviews confirming resolution against the final code.
 
 ## Demo
 
