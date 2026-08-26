@@ -206,17 +206,20 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
             os.killpg(proc.pid, signal.SIGKILL)
         await proc.wait()
 
+    async def _cleanup() -> None:
+        await asyncio.to_thread(shutil.rmtree, dest, ignore_errors=True)
+
     try:
         _, stderr = await asyncio.wait_for(
             proc.communicate(), timeout=CLONE_TIMEOUT_SECONDS
         )
     except asyncio.CancelledError:
         await _reap()
-        shutil.rmtree(dest, ignore_errors=True)
+        await _cleanup()
         raise
     except asyncio.TimeoutError:
         await _reap()
-        shutil.rmtree(dest, ignore_errors=True)
+        await _cleanup()
         return {
             "error": f"clone timed out after {CLONE_TIMEOUT_SECONDS}s",
             "timeout": True,
@@ -224,7 +227,7 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
 
     if proc.returncode != 0:
         tail = stderr.decode(errors="replace")[-500:]
-        shutil.rmtree(dest, ignore_errors=True)
+        await _cleanup()
         return {"error": "git clone failed", "git_stderr_tail": tail}
     return {"target": dest + "/repo"}
 
