@@ -120,7 +120,6 @@ def _owasp_for_rule(rule_id: str) -> str:
 def _remediation_for_finding(title: str, evidence: str) -> str:
     """Provide concrete remediation suggestions based on the finding type."""
     title_lower = title.lower()
-    evidence_lower = evidence.lower()
 
     if "eval" in title_lower or "exec" in title_lower:
         return (
