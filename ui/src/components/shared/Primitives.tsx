@@ -1,7 +1,6 @@
-import { motion } from "motion/react";
 import type { Confidence, Severity } from "../../types";
-import { CONFIDENCE_LABEL, EASE_OUT, SEVERITY_COLOR } from "./tokens";
-import { cn, useEntrance } from "../../lib/util";
+import { CONFIDENCE_LABEL, SEVERITY_COLOR } from "./tokens";
+import { cn } from "../../lib/util";
 
 /**
  * Containment: a viewfinder bracket around a specimen. The product's whole act
@@ -58,34 +57,5 @@ export function ConfidenceMark({ confidence }: { confidence: Confidence }) {
         {CONFIDENCE_LABEL[confidence]}
       </span>
     </span>
-  );
-}
-
-/**
- * A number that visibly changes when the real value does. Not a rolling
- * odometer — a weight-and-glow beat, so an arriving finding is felt without a
- * fake animation standing in for data that has not arrived.
- */
-export function Beat({
-  value,
-  color,
-  className,
-}: {
-  value: number;
-  color?: string;
-  className?: string;
-}) {
-  const enter = useEntrance();
-  return (
-    <motion.span
-      key={value}
-      initial={enter ? { opacity: 0.4, filter: "blur(3px)" } : false}
-      animate={{ opacity: 1, filter: "blur(0px)" }}
-      transition={{ duration: 0.32, ease: EASE_OUT }}
-      className={cn("num tabular-nums", className)}
-      style={{ color }}
-    >
-      {value}
-    </motion.span>
   );
 }

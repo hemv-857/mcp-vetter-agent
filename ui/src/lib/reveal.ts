@@ -21,7 +21,7 @@ import { usePrefersReducedMotion } from "./util";
  */
 
 /** The two lanes share a beat: running in parallel is the claim, not a detail. */
-export const REVEAL_BEATS: StageId[][] = [
+const REVEAL_BEATS: StageId[][] = [
   ["clone"],
   ["manifest"],
   ["static", "dynamic"],
@@ -51,11 +51,11 @@ export const BEAT_MS = 460;
 /** How long the completed map stays on screen before the verdict is offered. */
 export const HOLD_MS = 1500;
 
-export const TOTAL_BEATS = REVEAL_BEATS.length;
+const TOTAL_BEATS = REVEAL_BEATS.length;
 
 /** Findings exist once synthesis has merged the lanes — that is when numbers
  *  have earned the right to appear, not when the last stage clears. */
-export const ANALYSIS_BEAT = BEAT_OF.synthesis + 1;
+const ANALYSIS_BEAT = BEAT_OF.synthesis + 1;
 
 /** Infinity means "not revealing": show everything, immediately. */
 const useRevealStore = create<{

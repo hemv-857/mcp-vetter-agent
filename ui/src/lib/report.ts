@@ -21,7 +21,7 @@ const RULES: Record<string, { title: string; severity: Severity; owasp: string }
 /** Rules 008-011 are the Docker-sandboxed probes. */
 const DYNAMIC_RULES = new Set(["VULN-008", "VULN-009", "VULN-010", "VULN-011"]);
 
-export const SEVERITY_ORDER: Record<Severity, number> = {
+const SEVERITY_ORDER: Record<Severity, number> = {
   CRITICAL: 0,
   HIGH: 1,
   MEDIUM: 2,
@@ -44,7 +44,7 @@ function asSeverity(value: unknown, fallback: Severity): Severity {
  * documents `id`, the engine's own tests assert `rule_id`. Accept both rather
  * than betting on one, and never drop a finding because a key was missing.
  */
-export function normalizeFinding(raw: unknown, scanType: "static" | "full"): Finding | null {
+function normalizeFinding(raw: unknown, scanType: "static" | "full"): Finding | null {
   if (typeof raw !== "object" || raw === null) return null;
   const record = raw as Record<string, unknown>;
 
@@ -132,14 +132,6 @@ export function mergeFindings(a: Finding[], b: Finding[]): Finding[] {
   );
 }
 
-/** Severity as a zone value: tone carries it before hue does. */
-export const SEVERITY_ZONE: Record<Severity, number> = {
-  CRITICAL: 10,
-  HIGH: 8,
-  MEDIUM: 6,
-  LOW: 4,
-};
-
 export function summarize(findings: Finding[]): Summary {
   const summary: Summary = { total: findings.length, critical: 0, high: 0, medium: 0, low: 0 };
   for (const finding of findings) {
@@ -163,29 +155,3 @@ export function warrantsReport(summary: Summary): boolean {
   return summary.critical > 0 || summary.high > 0;
 }
 
-
-/**
- * What the target itself declared at this location, quoted from its own
- * manifest. Returns null when the finding does not point into a declaration —
- * in which case the declaration is silent, which is itself the discrepancy.
- */
-export function declaredAt(
-  finding: { file?: string; line?: number },
-  manifests: { name: string; body: string }[],
-): string | null {
-  if (!finding.file || !finding.line) return null;
-  const manifest = manifests.find((m) => m.name === finding.file);
-  if (!manifest) return null;
-
-  const lines = manifest.body.split("\n");
-  const index = finding.line - 1;
-  if (index < 0 || index >= lines.length) return null;
-
-  // the line plus the key above it, so a bare scope reads in context
-  const start = Math.max(0, index - 1);
-  return lines
-    .slice(start, index + 1)
-    .map((line) => line.replace(/\s+$/, ""))
-    .filter(Boolean)
-    .join("\n");
-}

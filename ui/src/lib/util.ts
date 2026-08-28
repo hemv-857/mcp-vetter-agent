@@ -11,13 +11,6 @@ export function formatDuration(ms: number): string {
   return `${minutes}m ${Math.round((ms % 60_000) / 1000)}s`;
 }
 
-export function relativeTime(timestamp: number, now: number): string {
-  const seconds = Math.max(0, Math.round((now - timestamp) / 1000));
-  if (seconds < 1) return "now";
-  if (seconds < 60) return `${seconds}s ago`;
-  return `${Math.floor(seconds / 60)}m ago`;
-}
-
 export function clockTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString(undefined, {
     hour12: false,
