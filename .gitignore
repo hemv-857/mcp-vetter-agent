@@ -1,4 +1,4 @@
-.env
+# python
 .venv/
 venv/
 __pycache__/
@@ -6,6 +6,25 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# node / frontend
+node_modules/
+ui/node_modules/
+ui/dist/
+*.tsbuildinfo
+
+# secrets and local config
+.env
+ui/.env.local
+
+# local run output
 scan-results/
+
+# local tooling state, not part of the project
+.claude/
+.impeccable/
+.remember/
+design/
+
+# os
 .DS_Store
-.github/

@@ -224,10 +224,10 @@
 
 ## UI Build (NEW — after backend complete)
 - [x] Create UI handoff docs (HANDOFF.md, CLAUDE_CODE.md, UI_SPEC.md, API_REFERENCE.md, UI_ARCHITECTURE.md)
-- [ ] Build frontend (React + Vite + Tailwind + MCP SDK)
-- [ ] Frontend connects to probe server on port 8000
-- [ ] Audit log shows real-time scan progress
-- [ ] Findings table displays results
-- [ ] Draft issue panel with approval checkbox
-- [ ] Filed confirmation with GitHub link
-- [ ] Dark mode, responsive, keyboard shortcuts
+- [x] Build frontend (React + Vite + Tailwind + MCP SDK)
+- [x] Frontend connects to probe server on port 8000
+- [x] Audit log shows real-time scan progress
+- [x] Findings table displays results
+- [x] Draft issue panel with approval checkbox
+- [x] Filed confirmation with GitHub link
+- [x] Dark mode, responsive, keyboard shortcuts

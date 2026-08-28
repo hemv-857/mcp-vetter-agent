@@ -29,7 +29,7 @@ def server():
     thread.join(timeout=5)
 
 
-def test_lists_three_read_only_tools(server):
+def test_lists_tools_with_correct_write_annotations(server):
     async def main():
         async with (
             streamablehttp_client(server) as (read, write, _),
@@ -40,6 +40,15 @@ def test_lists_three_read_only_tools(server):
 
     tools = asyncio.get_event_loop_policy().new_event_loop().run_until_complete(main())
     names = {t.name for t in tools.tools}
-    assert names == {"static_audit", "full_audit", "read_target_manifest", "clone_target"}
+    assert names == {
+        "static_audit",
+        "full_audit",
+        "read_target_manifest",
+        "clone_target",
+        "file_github_issue",
+    }
+    writes = {"clone_target", "file_github_issue"}
     for tool in tools.tools:
-        assert tool.annotations.readOnlyHint == (tool.name != "clone_target")
+        assert tool.annotations.readOnlyHint == (tool.name not in writes)
+    filing = next(t for t in tools.tools if t.name == "file_github_issue")
+    assert filing.annotations.destructiveHint is True
