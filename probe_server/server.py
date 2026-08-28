@@ -54,18 +54,29 @@ def _looks_like_the_vulnerable_fixture(target: str) -> bool:
     captured findings describe specific defects, so only replay them for a
     target that actually contains those defects.
 
-    NOTE: substring match over the top-level .py files - this exists only to
-    keep the demo honest while the real engine is unavailable, and dies with it.
+    NOTE: requires at least 2 of the 4 distinctive markers in the vulnerable
+    fixture to avoid attributing false findings to unrelated repos. This exists
+    only to keep the demo honest while the real engine is unavailable, and dies
+    with it.
     """
-    # a bare eval( — not ast.literal_eval(, which is what the hardened fixture uses
-    marker = re.compile(r"(?<![\w.])eval\(|ghp_[A-Za-z0-9]{16}")
+    markers = {
+        "unsafe_calculator": re.compile(r"unsafe_calculator"),
+        "eval_call": re.compile(r"(?<![\w.])eval\("),
+        "hardcoded_token": re.compile(r"ghp_[A-Za-z0-9]{16}"),
+        "admin_route": re.compile(r'@app\.post\("/admin"\)'),
+    }
+    found = set()
     try:
         for path in list(Path(target).glob("*.py"))[:20]:
-            if marker.search(path.read_text(encoding="utf-8", errors="replace")):
-                return True
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for name, pattern in markers.items():
+                if name in found:
+                    continue
+                if pattern.search(text):
+                    found.add(name)
     except OSError:
         return False
-    return False
+    return len(found) >= 2
 
 
 def _sample_report(target: str, scan_type: str) -> dict[str, Any]:

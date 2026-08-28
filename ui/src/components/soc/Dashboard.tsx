@@ -250,6 +250,11 @@ const VERDICT_COPY: Record<string, { word: string; line: string; colour: string 
     line: "No rule fired and no probe reproduced anything.",
     colour: "var(--color-ran)",
   },
+  DEGRADED: {
+    word: "Degraded",
+    line: "Static analysis complete. Dynamic probes could not run (no sandbox).",
+    colour: "var(--color-medium)",
+  },
 };
 
 const PHASE_LINE: Record<string, string> = {
@@ -667,14 +672,16 @@ function VerdictSection({
             <Values className="mt-11 flex flex-wrap items-center gap-3">
               {/* Goes to the report already on this page, not to a second copy
                   of it. Everything the audit saw, then the gate below it. */}
-              {stopped ? null : (
+              {stopped || phase === "filing" ? null : (
                 <Action tone="loud" icon="file" onClick={onViewReport}>
                   View the full report
                 </Action>
               )}
-              <Action tone={stopped ? "loud" : "quiet"} icon="refresh" onClick={onNewAudit}>
-                New audit
-              </Action>
+              {phase === "filing" ? null : (
+                <Action tone={stopped ? "loud" : "quiet"} icon="refresh" onClick={onNewAudit}>
+                  New audit
+                </Action>
+              )}
               {elapsed ? (
                 <span className="num ml-1 text-[11.5px] text-t4">
                   {elapsed} · {phase.replace(/_/g, " ")}

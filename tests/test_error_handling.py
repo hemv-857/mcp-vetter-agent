@@ -273,3 +273,59 @@ def test_read_target_manifest_survives_unreadable_files(tmp_path):
 
     result = asyncio.run(srv.read_target_manifest(str(target)))
     assert "error" not in result  # never raises - skips and reports instead
+
+
+# --- file_github_issue validation ---
+
+
+def test_file_github_issue_requires_token(monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    result = asyncio.run(
+        srv.file_github_issue("https://github.com/o/r", "t", "b")
+    )
+    assert "error" in result
+    assert result["github_configured"] is False
+
+
+def test_file_github_issue_rejects_empty_title(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    result = asyncio.run(
+        srv.file_github_issue("https://github.com/o/r", "  ", "body")
+    )
+    assert "error" in result
+    assert "title" in result["error"]
+
+
+def test_file_github_issue_rejects_empty_body(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    result = asyncio.run(
+        srv.file_github_issue("https://github.com/o/r", "title", "  ")
+    )
+    assert "error" in result
+    assert "body" in result["error"]
+
+
+def test_file_github_issue_rejects_non_github_host(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    result = asyncio.run(
+        srv.file_github_issue("https://gitlab.com/o/r", "t", "b")
+    )
+    assert "error" in result
+    assert "github.com" in result["error"]
+
+
+def test_file_github_issue_rejects_missing_owner_repo(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    result = asyncio.run(
+        srv.file_github_issue("https://github.com/only-owner", "t", "b")
+    )
+    assert "error" in result
+    assert "owner/repo" in result["error"]
+
+
+def test_file_github_issue_rejects_malformed_url(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test")
+    result = asyncio.run(
+        srv.file_github_issue("not-a-url", "t", "b")
+    )
+    assert "error" in result

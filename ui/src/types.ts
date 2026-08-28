@@ -31,7 +31,7 @@ export interface Summary {
   low: number;
 }
 
-export type Verdict = "HIGH" | "MEDIUM" | "LOW" | "CLEAN";
+export type Verdict = "HIGH" | "MEDIUM" | "LOW" | "CLEAN" | "DEGRADED";
 
 /** The stages of the investigation, in order. Drives the spine. */
 export type StageId =
