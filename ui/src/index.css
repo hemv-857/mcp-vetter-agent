@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Archivo";
+  src: url("./fonts/archivo-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Azeret Mono";
+  src: url("./fonts/azeret-mono-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------------------
+   Containment and instrumentation. See ui/DESIGN_DIRECTION.md.
+
+   Seven hues carry meaning and nothing else does: two channels (what the source
+   READ, what execution RAN), one boundary (HUMAN), four severities. Everything
+   else is graphite.
+   ------------------------------------------------------------------------- */
+@theme {
+  --color-bg: oklch(11.8% 0.008 236);
+  --color-p1: oklch(15.6% 0.0095 236);
+  --color-p2: oklch(19.4% 0.011 236);
+  --color-p3: oklch(24% 0.012 236);
+
+  --color-line: oklch(100% 0 0 / 0.065);
+  --color-line-2: oklch(100% 0 0 / 0.13);
+
+  --color-t1: oklch(97% 0.004 236);
+  --color-t2: oklch(80% 0.008 236);
+  /* measured against p1/p2/p3, not eyeballed: t4 sits on raised
+     surfaces and must clear 4.5:1 there, not only on the ground */
+  --color-t3: oklch(68% 0.01 236);
+  --color-t4: oklch(62% 0.011 236);
+
+  /* the two channels */
+  --color-read: oklch(78% 0.105 233);
+  --color-ran: oklch(80% 0.125 172);
+  /* the boundary only a person may cross */
+  --color-human: oklch(76% 0.145 302);
+
+  --color-critical: oklch(69% 0.205 25);
+  --color-high: oklch(77% 0.155 52);
+  --color-medium: oklch(85% 0.115 86);
+  --color-low: oklch(70% 0.032 250);
+
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Azeret Mono", ui-monospace, "SF Mono", monospace;
+
+  /* enter/exit — never ease-in */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* on-screen movement and morphs */
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    /* An absolutely-positioned popover that reaches past the right edge widens
+       the document, and every `fixed inset-0` layer then stretches to that
+       wider box — which on a phone slides the whole stage off screen. Clip at
+       the root so no single overflowing decoration can do that. `clip` rather
+       than `hidden`: it leaves the vertical axis visible and creates no scroll
+       container, so the sticky top bar keeps working. */
+    overflow-x: clip;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-t1);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+    text-wrap: pretty;
+    overflow-x: clip;
+  }
+
+  /* One atmospheric pool per channel, fixed behind everything. Depth comes from
+     this and from luminance layering — not from drop shadows. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(78% 58% at 78% -6%, oklch(78% 0.105 233 / 0.085), transparent 64%),
+      radial-gradient(70% 52% at 12% 104%, oklch(80% 0.125 172 / 0.05), transparent 66%);
+  }
+
+  /* Film grain kills the flat-fill look at zero layout cost. Fixed layer only. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.03em;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-read) 32%, transparent);
+    color: var(--color-t1);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-read);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  :where(a, button, input, textarea, [tabindex]) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Tailwind v4's preflight sets buttons to `cursor: default`. Anything that
+     acts like a control has to look like one under the cursor, or the operator
+     cannot tell what is pressable. */
+  :where(button, [role="button"], summary, a[href], label[for], select) {
+    cursor: pointer;
+  }
+  :where(button, [role="button"], select):disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  input,
+  textarea {
+    caret-color: var(--color-read);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-p3);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* One small-caps voice, for machine labels only. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+    color: var(--color-t4);
+  }
+
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Every pressable thing must feel heard. */
+  .press {
+    transition: transform 160ms var(--ease-out);
+  }
+  .press:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* The one field in the product. Its focus ring is CSS, not an animated
+     inline style, so it survives whatever happens to the JS. */
+  .field {
+    background: var(--color-p1);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.055),
+      0 0 0 1px var(--color-line-2),
+      0 20px 46px -32px oklch(0% 0 0 / 0.9);
+    transition:
+      background-color 200ms var(--ease-out),
+      box-shadow 200ms var(--ease-out);
+  }
+  .field:focus-within {
+    background: var(--color-p2);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.09),
+      0 0 0 1px var(--color-read),
+      0 26px 60px -30px var(--color-read);
+  }
+
+  /* A raised surface: hairline ring + inner top highlight. Never a drop shadow. */
+  .surface {
+    background: var(--color-p1);
+    box-shadow:
+      inset 0 1px 0 oklch(100% 0 0 / 0.05),
+      0 0 0 1px var(--color-line);
+  }
+}
+
+@layer components {
+  /* The instrument's band. Its height tracks the graph's own aspect ratio, so
+     a phone gets a proportional strip instead of a tiny graph floating in a
+     desktop-sized void. Settling is a change of height and luminance. */
+  .graph-band {
+    height: min(470px, 34vw);
+    /* Deliberate: height, not transform. Scaling would squash the drawing
+       inside; this reflows around it, once per audit, on one element. */
+    transition: height 660ms var(--ease-move);
+  }
+  .graph-band[data-settled="true"] {
+    height: min(344px, 26vw);
+  }
+  @media (max-width: 640px) {
+    .graph-band { height: 42vw; }
+    .graph-band[data-settled="true"] { height: 34vw; }
+  }
+}
+
+@layer utilities {
+  /* A pane that scrolls should not hand its overscroll to the page. */
+  .contain-scroll {
+    overscroll-behavior: contain;
+  }
+  /* Findings are usually a dozen; a pathological scan should still scroll well. */
+  .row-skip {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Movement goes. Opacity, colour and progress fills stay — they are
+     information, not decoration. */
+  *:not(.keep-motion) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* The verdict's aura. Predetermined, never interrupted, and it runs for as long
+   as the verdict is on screen — so it belongs to the compositor, not to a
+   requestAnimationFrame loop competing with the audit. The global
+   reduced-motion rule above already stands it down. */
+@keyframes aura-breathe {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+.aura-breathe {
+  animation: aura-breathe 7s ease-in-out infinite;
+}

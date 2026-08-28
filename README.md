@@ -49,10 +49,39 @@ Try it against the bundled fixtures first:
 | `fixtures/vulnerable_server` | HIGH risk — `eval()` calculator, unrestricted file reader, poisoned prompt |
 | `fixtures/clean_server` | Clean report |
 
+## The console
+
+There are two ways to drive the agent: the TrueForge chat above, or the web
+console in `ui/` — a static React SPA that speaks MCP straight to the probe
+server, with no backend in between.
+
+```bash
+# terminal 1 — the probe server
+uvicorn probe_server.server:mcp_app --host 127.0.0.1 --port 8000
+
+# terminal 2 — the console
+cd ui && npm install && npm run dev     # http://localhost:5173
+```
+
+The console presents the audit as a live graph with two lanes: reading the source
+and running it sealed in a container keep separate visual languages and only
+merge at synthesis, because a defect is fact only where both agree. It shows what the agent is doing, what it is waiting on, and
+what it did — and asks before the irreversible step rather than after it. Filing goes through
+`file_github_issue` on the probe server, which reads `GITHUB_TOKEN` from its own
+environment; the browser never handles a credential.
+
+If the `security_scanner` engine is not installed, start the probe server with
+`VETTING_DEV_FIXTURES=1` to replay a captured report. Replayed reports are
+tagged `sample_data: true` and the console labels them everywhere they appear.
+
+See `ui/README.md` for the architecture and `ui/DESIGN_DIRECTION.md` for the
+locked visual direction.
+
 ## Repository layout
 
 ```
 probe_server/    MCP server exposing the scanning engine as agent tools
+ui/              Web console (React + Vite + Tailwind + Zustand + MCP SDK)
 fixtures/        Vulnerable + hardened reference MCP servers
 deploy/          TrueForge agent manifest (agent spec via API)
 docs/            PRD, architecture, week plan, setup guide

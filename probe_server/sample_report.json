@@ -1,0 +1,147 @@
+{
+  "sample_data": true,
+  "sample_reason": "security_scanner engine not installed on this host; replaying a captured report so the review and approval flow can be exercised",
+  "analysisComplete": true,
+  "scan_type": "REPLACED",
+  "target": "REPLACED",
+  "findings": [
+    {
+      "rule_id": "VULN-001",
+      "title": "Unsafe execution in tool handler",
+      "severity": "HIGH",
+      "owasp_category": "A3: Injection",
+      "file": "server.py",
+      "line": 27,
+      "evidence": "return eval(expression)",
+      "remediation": "Replace eval() with ast.literal_eval() for literal expressions, or evaluate against an explicit operator safelist. Never pass tool arguments to a dynamic evaluator.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-002",
+      "title": "Hardcoded credentials",
+      "severity": "HIGH",
+      "owasp_category": "A2: Cryptographic Failures",
+      "file": "server.py",
+      "line": 13,
+      "evidence": "api_key = \"ghp_****************************\"",
+      "remediation": "Read the token from the environment at call time and keep it out of source control. Rotate the exposed credential immediately — it must be treated as compromised.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-003",
+      "title": "Missing input validation",
+      "severity": "MEDIUM",
+      "owasp_category": "A6: Vulnerable Components",
+      "file": "server.py",
+      "line": 32,
+      "evidence": "return arguments[\"record_id\"]",
+      "remediation": "Validate the argument object against the declared input schema before indexing it. An absent key raises KeyError straight out of the tool handler.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-004",
+      "title": "Unrestricted file access",
+      "severity": "HIGH",
+      "owasp_category": "A1: Broken Access Control",
+      "file": "server.py",
+      "line": 18,
+      "evidence": "return open(\"data/users.json\", encoding=\"utf-8\").read()",
+      "remediation": "Resolve the requested path and confirm it is contained within an allowlisted root before opening it. The declared read scope of \"**\" grants the entire filesystem.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-005",
+      "title": "Excessive permissions",
+      "severity": "MEDIUM",
+      "owasp_category": "A5: Security Misconfiguration",
+      "file": "permissions.yaml",
+      "line": 6,
+      "evidence": "broad_reader.filesystem.read.scopes: [\"**\"]",
+      "remediation": "Narrow the declared read scope to the specific directories the tool needs. \"**\" is a whole-filesystem grant.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-006",
+      "title": "Insecure prompt construction",
+      "severity": "MEDIUM",
+      "owasp_category": "A3: Injection",
+      "file": "server.py",
+      "line": 39,
+      "evidence": "return f\"Follow these tool instructions: {text}\"",
+      "remediation": "Never interpolate another tool's response into an instruction-shaped prompt. Pass it as clearly delimited untrusted data instead.",
+      "source": "static",
+      "confidence": "candidate"
+    },
+    {
+      "rule_id": "VULN-007",
+      "title": "Missing authentication",
+      "severity": "HIGH",
+      "owasp_category": "A7: Auth Failures",
+      "file": "server.py",
+      "line": 42,
+      "evidence": "@app.post(\"/admin\")",
+      "remediation": "Require an authenticated principal on the admin route, or remove the HTTP surface entirely if the server is stdio-only.",
+      "source": "static",
+      "confidence": "candidate"
+    }
+  ],
+  "dynamic_findings": [
+    {
+      "rule_id": "VULN-008",
+      "title": "Out-of-scope tool execution",
+      "severity": "CRITICAL",
+      "owasp_category": "A7: Breakout",
+      "file": "tools.yaml",
+      "line": 21,
+      "evidence": "tool \"ungranted_echo\" is declared in tools.yaml and answered a live call, but has no entry in permissions.yaml — it executed entirely outside the declared permission boundary",
+      "remediation": "Refuse to serve any tool that has no permission entry. Fail closed: an undeclared tool must not be reachable.",
+      "source": "dynamic",
+      "confidence": "confirmed",
+      "probe": "docker_sandbox"
+    },
+    {
+      "rule_id": "VULN-009",
+      "title": "Oversized arguments accepted",
+      "severity": "MEDIUM",
+      "owasp_category": "A4: Insecure Design",
+      "file": "server.py",
+      "line": 78,
+      "evidence": "call_tool registered with validate_input=False; a 4 MiB string argument was accepted and processed without limit",
+      "remediation": "Enforce a maximum argument size at the transport boundary before dispatch.",
+      "source": "dynamic",
+      "confidence": "confirmed",
+      "probe": "docker_sandbox"
+    },
+    {
+      "rule_id": "VULN-010",
+      "title": "Injection payload executed",
+      "severity": "HIGH",
+      "owasp_category": "A3: Injection",
+      "file": "server.py",
+      "line": 27,
+      "evidence": "probe sent expression=__import__('os').getcwd() to unsafe_calculator; the sandboxed container returned its working directory, confirming arbitrary evaluation",
+      "remediation": "Corroborates VULN-001. Remove the dynamic evaluator; a safelist parser is the only safe form of this tool.",
+      "source": "dynamic",
+      "confidence": "confirmed",
+      "probe": "docker_sandbox"
+    },
+    {
+      "rule_id": "VULN-011",
+      "title": "Malformed schema input accepted",
+      "severity": "MEDIUM",
+      "owasp_category": "A4: Insecure Design",
+      "file": "server.py",
+      "line": 78,
+      "evidence": "unchecked_lookup called with arguments={} raised KeyError('record_id') out of the handler instead of returning a protocol error",
+      "remediation": "Validate against the declared input schema and return a structured MCP error rather than letting the exception escape.",
+      "source": "dynamic",
+      "confidence": "confirmed",
+      "probe": "docker_sandbox"
+    }
+  ]
+}

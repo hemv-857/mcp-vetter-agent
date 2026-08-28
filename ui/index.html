@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <!-- The product's own mark, inline: a viewfinder bracket around a specimen.
+         No network request, and no default globe in the tab. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23131618'/%3E%3Cg transform='translate(6 6) scale(1.111)' fill='none' stroke='%236dc3f0' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M1.6 6V2.6a1 1 0 0 1 1-1H6M12 1.6h3.4a1 1 0 0 1 1 1V6M16.4 12v3.4a1 1 0 0 1-1 1H12M6 16.4H2.6a1 1 0 0 1-1-1V12'/%3E%3C/g%3E%3Cpath d='M16 11.9 20 16l-4 4.1-4-4.1 4-4.1Z' fill='%236dc3f0'/%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#131618" />
+    <title>MCP Vetting</title>
+    <meta
+      name="description"
+      content="Audit a third-party MCP server before you connect an agent to it."
+    />
+  </head>
+  <body>
+    <!--
+      MCP Vetting — a security investigation instrument.
+
+      DIRECTION: containment and instrumentation (see ui/DESIGN_DIRECTION.md).
+      A third-party MCP server is a specimen. One instrument reads its source
+      without running it; the other runs it sealed and watches what escapes.
+      The two channels keep separate visual languages — static is orthogonal,
+      square and hollow; dynamic is curved, round and filled — and only merge
+      at synthesis. Then the machine stops, because publishing is not reading.
+
+      Dark only. Seven hues carry meaning and nothing else does.
+    -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

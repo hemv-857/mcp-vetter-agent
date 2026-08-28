@@ -28,11 +28,66 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.cors import CORSMiddleware
 
 STATIC_TIMEOUT_SECONDS = 30
 FULL_TIMEOUT_SECONDS = 300
 CLONE_TIMEOUT_SECONDS = 120
 _REPORT_EXIT_CODES = (0, 1)  # 0 = clean, 1 = findings at/over fail threshold
+
+# Dev-only replay. When the security_scanner engine is not installed on this host,
+# VETTING_DEV_FIXTURES=1 makes the audit tools return a captured report so the
+# review/approval flow stays exercisable. Every replayed report carries
+# sample_data=true so no consumer can mistake it for a live scan. Off by default.
+_SAMPLE_REPORT = Path(__file__).parent / "sample_report.json"
+
+
+def dev_fixtures_enabled() -> bool:
+    """Read at call time, not import time, so it is togglable and testable."""
+    return os.environ.get("VETTING_DEV_FIXTURES") == "1"
+
+
+def _looks_like_the_vulnerable_fixture(target: str) -> bool:
+    """Cheap content check so replay does not depend on the directory's name.
+
+    A clone lands in /tmp/vetted-*/repo, so the path tells us nothing. The
+    captured findings describe specific defects, so only replay them for a
+    target that actually contains those defects.
+
+    NOTE: substring match over the top-level .py files - this exists only to
+    keep the demo honest while the real engine is unavailable, and dies with it.
+    """
+    # a bare eval( — not ast.literal_eval(, which is what the hardened fixture uses
+    marker = re.compile(r"(?<![\w.])eval\(|ghp_[A-Za-z0-9]{16}")
+    try:
+        for path in list(Path(target).glob("*.py"))[:20]:
+            if marker.search(path.read_text(encoding="utf-8", errors="replace")):
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def _sample_report(target: str, scan_type: str) -> dict[str, Any]:
+    """Replay the captured report, tagged so the UI must label it as sample data.
+
+    The captured findings describe the vulnerable fixture specifically, so they
+    are only replayed for a target that actually looks like it. Anything else
+    replays a clean report rather than attributing someone else's defects to it.
+    """
+    report: dict[str, Any] = json.loads(_SAMPLE_REPORT.read_text(encoding="utf-8"))
+    dynamic = report.pop("dynamic_findings", [])
+    if not _looks_like_the_vulnerable_fixture(target):
+        report["findings"] = []
+        report["sample_reason"] = (
+            "security_scanner engine not installed; replaying a clean report because the "
+            "captured findings only describe the vulnerable fixture"
+        )
+    elif scan_type == "full":
+        report["findings"] = report["findings"] + dynamic
+    report["scan_type"] = scan_type
+    report["target"] = target
+    return report
 
 mcp = FastMCP("mcp-vetting", host="127.0.0.1", port=8000)
 
@@ -65,7 +120,10 @@ def _resolve_target(target_dir: str) -> Path:
 
 
 async def _run_scan(
-    target_dir: str, *extra_flags: str, timeout: int = FULL_TIMEOUT_SECONDS
+    target_dir: str,
+    *extra_flags: str,
+    timeout: int = FULL_TIMEOUT_SECONDS,
+    scan_type: str = "full",
 ) -> dict[str, Any]:
     """Run the scanner CLI and return the parsed JSON report."""
     try:
@@ -73,7 +131,10 @@ async def _run_scan(
     except ValueError as error:
         return {"error": str(error)}
 
-    # ponytail: process-group kill handles scanner children; Docker containers
+    if dev_fixtures_enabled():
+        return _sample_report(str(target), scan_type)
+
+    # NOTE: process-group kill handles scanner children; Docker containers
     # launched by dynamic probes are the scanner's own cleanup responsibility.
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -123,7 +184,7 @@ async def _run_scan(
 def _sweep_old_clones(max_age_seconds: int = 86400) -> None:
     """Best-effort disk reclamation for clones abandoned by earlier audits.
 
-    ponytail: mtime-based sweep, not refcounting - per-target cleanup hooks
+    NOTE: mtime-based sweep, not refcounting - per-target cleanup hooks
     only if tempdir growth ever becomes measurable.
     """
     now = time.time()
@@ -180,7 +241,7 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
     error = _validate_clone_url(repo_url)
     if error:
         return {"error": error, "url": repo_url}
-    # ponytail: sweep in a thread - deleting big stale trees must not stall the loop
+    # NOTE: sweep in a thread - deleting big stale trees must not stall the loop
     await asyncio.to_thread(_sweep_old_clones)
 
     dest = tempfile.mkdtemp(prefix="vetted-")
@@ -247,7 +308,11 @@ async def static_audit(target_dir: str) -> dict[str, Any]:
     # Degraded mode parks unreviewed candidates as needs_review instead of
     # failing when no model key is configured - keeps this tool self-contained.
     return await _run_scan(
-        target_dir, "--static-only", "--allow-degraded", timeout=STATIC_TIMEOUT_SECONDS
+        target_dir,
+        "--static-only",
+        "--allow-degraded",
+        timeout=STATIC_TIMEOUT_SECONDS,
+        scan_type="static",
     )
 
 
@@ -265,10 +330,12 @@ async def full_audit(target_dir: str, allow_degraded: bool = False) -> dict[str,
     review unless allow_degraded degrades to needs_review instead of failing.
     Slow: budget up to 5 minutes per scan.
     """
-    if not await _docker_available():
+    if not dev_fixtures_enabled() and not await _docker_available():
         return {"error": "Docker required for dynamic probes", "docker_available": False}
     flags = ["--allow-degraded"] if allow_degraded else []
-    return await _run_scan(target_dir, *flags, timeout=FULL_TIMEOUT_SECONDS)
+    return await _run_scan(
+        target_dir, *flags, timeout=FULL_TIMEOUT_SECONDS, scan_type="full"
+    )
 
 
 @mcp.tool(
@@ -303,12 +370,87 @@ async def read_target_manifest(target_dir: str) -> dict[str, Any]:
     return {"target": str(target), "manifests": manifests, "skipped": skipped}
 
 
+@mcp.tool(
+    annotations={"readOnlyHint": False, "destructiveHint": True, "title": "File GitHub security issue"},
+)
+async def file_github_issue(
+    repo_url: str,
+    title: str,
+    body: str,
+    labels: list[str] | None = None,
+) -> dict[str, Any]:
+    """File a security issue on a public GitHub repository.
+
+    This is the only write action in the server and the only step that leaves
+    this host. It requires GITHUB_TOKEN (repo scope) in the environment; the
+    token is never accepted from, or returned to, the caller.
+    Returns {"url": ..., "number": ...} on success.
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return {
+            "error": "GITHUB_TOKEN not configured on the probe server",
+            "github_configured": False,
+        }
+    if not title.strip():
+        return {"error": "issue title must not be empty"}
+    if not body.strip():
+        return {"error": "issue body must not be empty"}
+
+    try:
+        parts = urlsplit(repo_url.strip())
+    except ValueError:
+        return {"error": "malformed repository URL", "url": repo_url}
+    if (parts.hostname or "").lower() not in ("github.com", "www.github.com"):
+        return {"error": "issues can only be filed on github.com", "url": repo_url}
+    segments = [s for s in parts.path.split("/") if s]
+    if len(segments) < 2:
+        return {"error": "URL must point at a repository (owner/repo)", "url": repo_url}
+    owner, repo = segments[0], segments[1].removesuffix(".git")
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"https://api.github.com/repos/{owner}/{repo}/issues",
+                json={"title": title, "body": body, "labels": labels or []},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+    except httpx.HTTPError as error:
+        return {"error": f"could not reach GitHub: {type(error).__name__}"}
+
+    if response.status_code not in (200, 201):
+        return {
+            "error": f"GitHub API error {response.status_code}",
+            "status_code": response.status_code,
+            "detail": response.text[:500],
+        }
+    data = response.json()
+    return {
+        "url": data["html_url"],
+        "number": data["number"],
+        "repo": f"{owner}/{repo}",
+    }
+
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request: Any) -> Any:
-    """Liveness plus Docker availability (dynamic probes depend on it)."""
+    """Liveness plus the capability flags the UI needs to render honest state."""
     from starlette.responses import JSONResponse
 
-    return JSONResponse({"status": "ok", "docker_available": await _docker_available()})
+    return JSONResponse(
+        {
+            "status": "ok",
+            "docker_available": await _docker_available(),
+            "dev_fixtures": dev_fixtures_enabled(),
+            "github_configured": bool(os.environ.get("GITHUB_TOKEN")),
+        }
+    )
 
 
 def main() -> None:
@@ -317,6 +459,26 @@ def main() -> None:
 
 # ASGI app entry point for uvicorn (serves the MCP streamable-HTTP transport at /mcp).
 mcp_app = mcp.streamable_http_app()
+
+# The console is a static SPA on a different origin, so the browser needs CORS.
+# NOTE: origins come from an env var with dev defaults - lock it down with
+# VETTING_ALLOWED_ORIGINS if this is ever served anywhere but a workstation.
+_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "VETTING_ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+    ).split(",")
+    if origin.strip()
+]
+mcp_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    # the MCP client reads the session id off the response to resume a session
+    expose_headers=["mcp-session-id"],
+)
 
 if __name__ == "__main__":
     main()
