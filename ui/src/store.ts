@@ -5,7 +5,6 @@ import type {
   Finding,
   FiledIssue,
   Health,
-  LogEntry,
   Manifest,
   Phase,
   Stage,
@@ -89,7 +88,6 @@ interface AuditState {
   scanStartedAt: number | null;
 
   // output
-  log: LogEntry[];
   manifests: Manifest[];
   findings: Finding[];
   summary: Summary | null;
@@ -111,7 +109,6 @@ interface AuditState {
   rememberUrl: (url: string) => void;
   beginScan: (url: string) => void;
   setStage: (id: StageId, patch: Partial<Omit<Stage, "id">>) => void;
-  log_: (entry: Omit<LogEntry, "id" | "timestamp">) => void;
   setTargetPath: (path: string) => void;
   setManifests: (manifests: Manifest[]) => void;
   setResults: (findings: Finding[], summary: Summary, verdict: Verdict) => void;
@@ -127,8 +124,6 @@ interface AuditState {
   reset: () => void;
 }
 
-let logId = 0;
-
 export const useStore = create<AuditState>()((set, get) => ({
   connection: "connecting",
   connected: false,
@@ -142,7 +137,6 @@ export const useStore = create<AuditState>()((set, get) => ({
   targetPath: null,
   scanStartedAt: null,
 
-  log: [],
   manifests: [],
   findings: [],
   summary: null,
@@ -183,8 +177,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       stages: freshStages(),
       targetPath: null,
       scanStartedAt: Date.now(),
-      log: [],
-      manifests: [],
+        manifests: [],
       findings: [],
       summary: null,
       verdict: null,
@@ -199,11 +192,6 @@ export const useStore = create<AuditState>()((set, get) => ({
   setStage: (id, patch) =>
     set((state) => ({
       stages: state.stages.map((stage) => (stage.id === id ? { ...stage, ...patch } : stage)),
-    })),
-
-  log_: (entry) =>
-    set((state) => ({
-      log: [...state.log, { ...entry, id: (logId += 1), timestamp: Date.now() }],
     })),
 
   setTargetPath: (targetPath) => set({ targetPath }),
@@ -251,8 +239,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       stages: freshStages(),
       targetPath: null,
       scanStartedAt: null,
-      log: [],
-      manifests: [],
+        manifests: [],
       findings: [],
       summary: null,
       verdict: null,

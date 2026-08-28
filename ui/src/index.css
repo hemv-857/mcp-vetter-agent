@@ -236,11 +236,6 @@
   .contain-scroll {
     overscroll-behavior: contain;
   }
-  /* Findings are usually a dozen; a pathological scan should still scroll well. */
-  .row-skip {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 56px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,6 +1,6 @@
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
-export type FindingSource = "static" | "dynamic";
+type FindingSource = "static" | "dynamic";
 
 /** Static rules say "maybe". Only a live probe in isolation says "yes". */
 export type Confidence = "candidate" | "confirmed" | "needs_review";
@@ -59,19 +59,6 @@ export interface Stage {
   /** Real timeout budget of the underlying tool, in ms. Drives honest progress. */
   budgetMs?: number;
   note?: string;
-}
-
-export type LogKind = "info" | "success" | "error" | "warning" | "human";
-
-export interface LogEntry {
-  id: number;
-  timestamp: number;
-  stage: StageId | "system";
-  step: string;
-  detail: string;
-  kind: LogKind;
-  /** Rendered in mono as machine output rather than prose. */
-  machine?: boolean;
 }
 
 export interface Manifest {

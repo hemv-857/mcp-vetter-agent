@@ -4,7 +4,7 @@ import { findingsFromReport, mergeFindings, summarize, verdictOf, warrantsReport
 import { STAGE_BUDGET, useStore } from "../store";
 import type { Finding, Manifest } from "../types";
 
-export function isLocalPath(target: string): boolean {
+function isLocalPath(target: string): boolean {
   return !/^https?:\/\//i.test(target);
 }
 
@@ -30,8 +30,8 @@ const message = (error: unknown): string =>
 /**
  * clone → manifest → (static ‖ dynamic) → synthesis → human review.
  *
- * Every stage transition and every log line below is driven by a real tool
- * result. Nothing is simulated, and no timer stands in for work.
+ * Every stage transition below is driven by a real tool result. Nothing is
+ * simulated, and no timer stands in for work.
  */
 export async function runAudit(rawTarget: string): Promise<void> {
   const store = useStore.getState();
@@ -50,37 +50,21 @@ export async function runAudit(rawTarget: string): Promise<void> {
   } catch {
     /* history is unavailable in some embedded contexts */
   }
-  const { setStage, log_, fail } = useStore.getState();
+  const { setStage, fail } = useStore.getState();
 
   // ---------------------------------------------------------------- acquire
   let targetPath: string;
   if (local) {
     targetPath = target;
     setStage("clone", { state: "skipped", note: "local path" });
-    log_({
-      stage: "clone",
-      step: "Local target",
-      detail: target,
-      kind: "info",
-      machine: true,
-    });
   } else {
     setStage("clone", { state: "active", startedAt: Date.now(), budgetMs: STAGE_BUDGET.clone });
-    log_({ stage: "clone", step: "Cloning", detail: target, kind: "info" });
     try {
       const result = await callTool<{ target: string }>("clone_target", { repo_url: target });
       targetPath = result.target;
       setStage("clone", { state: "done", endedAt: Date.now() });
-      log_({
-        stage: "clone",
-        step: "Acquired",
-        detail: targetPath,
-        kind: "success",
-        machine: true,
-      });
     } catch (error) {
       setStage("clone", { state: "failed", endedAt: Date.now() });
-      log_({ stage: "clone", step: "Clone failed", detail: message(error), kind: "error" });
       fail(message(error));
       return;
     }
@@ -89,7 +73,6 @@ export async function runAudit(rawTarget: string): Promise<void> {
 
   // --------------------------------------------------------------- manifest
   setStage("manifest", { state: "active", startedAt: Date.now() });
-  log_({ stage: "manifest", step: "Reading declarations", detail: "*.yaml, *.yml", kind: "info" });
   try {
     const result = await callTool<{ manifests: Record<string, string>; skipped: string[] }>(
       "read_target_manifest",
@@ -101,40 +84,17 @@ export async function runAudit(rawTarget: string): Promise<void> {
     }));
     useStore.getState().setManifests(manifests);
     setStage("manifest", { state: "done", endedAt: Date.now(), note: `${manifests.length} files` });
-    log_({
-      stage: "manifest",
-      step: manifests.length ? "Declared surface" : "No manifests",
-      detail: manifests.length
-        ? manifests.map((m) => m.name).join("  ")
-        : "The server declares no YAML manifest.",
-      kind: manifests.length ? "success" : "warning",
-      machine: manifests.length > 0,
-    });
     if (result.skipped?.length) {
-      log_({
-        stage: "manifest",
-        step: "Skipped",
-        detail: result.skipped.join(", "),
-        kind: "warning",
-      });
     }
   } catch (error) {
     // Manifest reading is context, not a gate — the scans can still run.
     setStage("manifest", { state: "failed", endedAt: Date.now() });
-    log_({ stage: "manifest", step: "Could not read", detail: message(error), kind: "warning" });
   }
 
   // ------------------------------------------------- static ‖ dynamic lanes
   const now = Date.now();
   setStage("static", { state: "active", startedAt: now, budgetMs: STAGE_BUDGET.static });
   setStage("dynamic", { state: "active", startedAt: now, budgetMs: STAGE_BUDGET.dynamic });
-  log_({ stage: "static", step: "Static analysis", detail: "AST rules, VULN-001..007", kind: "info" });
-  log_({
-    stage: "dynamic",
-    step: "Dynamic probes",
-    detail: "sandboxed execution, VULN-008..011",
-    kind: "info",
-  });
 
   let sampleData = false;
 
@@ -150,19 +110,9 @@ export async function runAudit(rawTarget: string): Promise<void> {
         endedAt: Date.now(),
         note: `${findings.length} candidates`,
       });
-      log_({
-        stage: "static",
-        step: "Static complete",
-        detail: findings.length
-          ? `${findings.length} candidate${findings.length === 1 ? "" : "s"}: ${findings.map((f) => f.id).join(" ")}`
-          : "No static rule fired.",
-        kind: findings.length ? "warning" : "success",
-        machine: findings.length > 0,
-      });
       return findings;
     } catch (error) {
       setStage("static", { state: "failed", endedAt: Date.now() });
-      log_({ stage: "static", step: "Static failed", detail: message(error), kind: "error" });
       return [];
     }
   })();
@@ -180,15 +130,6 @@ export async function runAudit(rawTarget: string): Promise<void> {
         endedAt: Date.now(),
         note: `${findings.length} confirmed`,
       });
-      log_({
-        stage: "dynamic",
-        step: "Probes complete",
-        detail: findings.length
-          ? `${findings.length} confirmed in isolation: ${findings.map((f) => f.id).join(" ")}`
-          : "No dynamic probe fired.",
-        kind: findings.length ? "warning" : "success",
-        machine: findings.length > 0,
-      });
       return findings;
     } catch (error) {
       const detail = message(error);
@@ -197,14 +138,6 @@ export async function runAudit(rawTarget: string): Promise<void> {
         state: unavailable ? "skipped" : "failed",
         endedAt: Date.now(),
         note: unavailable ? "no sandbox" : undefined,
-      });
-      log_({
-        stage: "dynamic",
-        step: unavailable ? "Probes unavailable" : "Probes failed",
-        detail: unavailable
-          ? "Docker is not available on the probe host. Static analysis only; nothing can be confirmed by execution."
-          : detail,
-        kind: "warning",
       });
       return [];
     }
@@ -229,17 +162,6 @@ export async function runAudit(rawTarget: string): Promise<void> {
   useStore.getState().setResults(findings, summary, verdict);
 
   setStage("synthesis", { state: "done", endedAt: Date.now(), note: verdict });
-  log_({
-    stage: "synthesis",
-    step: "Verdict",
-    detail:
-      verdict === "CLEAN"
-        ? "No findings. Nothing to report."
-        : `${verdict} risk — ${summary.total} finding${summary.total === 1 ? "" : "s"}, ${
-            findings.filter((f) => f.confidence === "confirmed").length
-          } confirmed by execution.`,
-    kind: verdict === "CLEAN" ? "success" : "warning",
-  });
 
   // ---------------------------------------------------------- human review
   if (warrantsReport(summary)) {
@@ -247,40 +169,21 @@ export async function runAudit(rawTarget: string): Promise<void> {
     useStore.getState().setDraft(draft);
     setStage("review", { state: "awaiting", startedAt: Date.now() });
     useStore.getState().setPhase("awaiting_approval");
-    log_({
-      stage: "review",
-      step: "Human review required",
-      detail:
-        "A public security report has been drafted. Filing it is irreversible, so the system stops here.",
-      kind: "human",
-    });
   } else {
     setStage("review", { state: "skipped", note: "not warranted" });
     setStage("file", { state: "skipped", note: "not warranted" });
     useStore.getState().setPhase("complete");
-    log_({
-      stage: "review",
-      step: "No report warranted",
-      detail: "No CRITICAL or HIGH finding. Nothing is filed and no approval is needed.",
-      kind: "success",
-    });
   }
 }
 
 /** The one write action in the product. Only ever called from an explicit click. */
 export async function fileIssue(): Promise<void> {
-  const { draftIssue, log_, setStage, setFiled, setPhase, failFiling } = useStore.getState();
+  const { draftIssue, setStage, setFiled, setPhase, failFiling } = useStore.getState();
   if (!draftIssue) return;
 
   setPhase("filing");
   setStage("review", { state: "done", endedAt: Date.now(), note: "authorised" });
   setStage("file", { state: "active", startedAt: Date.now() });
-  log_({
-    stage: "file",
-    step: "Authorised by operator",
-    detail: `Filing on ${draftIssue.targetRepo}`,
-    kind: "human",
-  });
 
   try {
     const result = await callTool<{ url: string; number: number; repo: string }>(
@@ -294,15 +197,7 @@ export async function fileIssue(): Promise<void> {
     );
     setStage("file", { state: "done", endedAt: Date.now(), note: `#${result.number}` });
     setFiled(result);
-    log_({
-      stage: "file",
-      step: "Filed",
-      detail: result.url,
-      kind: "success",
-      machine: true,
-    });
   } catch (error) {
-    log_({ stage: "file", step: "Filing failed", detail: message(error), kind: "error" });
     setStage("review", { state: "awaiting" });
     failFiling(message(error));
   }
@@ -310,15 +205,9 @@ export async function fileIssue(): Promise<void> {
 
 /** Declining is a real outcome, recorded like any other. */
 export function declineFiling(): void {
-  const { setStage, setPhase, log_, setDraft } = useStore.getState();
+  const { setStage, setPhase, setDraft } = useStore.getState();
   setStage("review", { state: "done", endedAt: Date.now(), note: "declined" });
   setStage("file", { state: "skipped", note: "declined" });
   setPhase("complete");
   setDraft(null);
-  log_({
-    stage: "file",
-    step: "Declined by operator",
-    detail: "The report was not filed. The findings above remain available.",
-    kind: "human",
-  });
 }

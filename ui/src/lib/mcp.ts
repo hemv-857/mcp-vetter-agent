@@ -16,8 +16,8 @@ async function loadSdk() {
 }
 
 const SERVER_ORIGIN = import.meta.env.VITE_PROBE_ORIGIN ?? "http://127.0.0.1:8000";
-export const SERVER_URL = `${SERVER_ORIGIN}/mcp`;
-export const HEALTH_URL = `${SERVER_ORIGIN}/health`;
+const SERVER_URL = `${SERVER_ORIGIN}/mcp`;
+const HEALTH_URL = `${SERVER_ORIGIN}/health`;
 /** The port this console is actually pointed at, so recovery advice matches reality. */
 export const SERVER_PORT = (() => {
   try {
@@ -77,11 +77,6 @@ export async function connect(): Promise<Client> {
   } finally {
     connecting = null;
   }
-}
-
-export function disconnect(): void {
-  client?.close().catch(() => {});
-  client = null;
 }
 
 export async function checkHealth(signal?: AbortSignal): Promise<Health> {

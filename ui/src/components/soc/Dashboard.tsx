@@ -1055,7 +1055,7 @@ export function Dashboard() {
 
         {/* Above the landing, always. The exit below is a flourish; if it stalls
             — a starved tab, a busy main thread — the audit must still be the
-            thing on screen. Same rule the console shell already follows. */}
+            thing on screen. */}
         {!idle ? (
           <div className="relative z-20">
             <InstrumentSection />
