@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { useStore } from "../../store";
 import { EASE_MOVE, EASE_OUT } from "../shared/tokens";
-import { useEntrance } from "../../lib/util";
+import { useEntrance, useMotionOk } from "../../lib/util";
 
 /**
  * After the boundary. Deliberately unlike the approval surface: the violet
@@ -12,7 +12,10 @@ export function Filed() {
   const filed = useStore((s) => s.filedIssue);
   const phase = useStore((s) => s.phase);
   const reset = useStore((s) => s.reset);
+  // Two gates, one rule: under reduced motion the movement goes and the
+  // opacity stays. `enter` permits a fade, `move` permits a transform.
   const enter = useEntrance();
+  const move = useMotionOk();
 
   if (!filed || phase !== "filed") return null;
 
@@ -22,11 +25,11 @@ export function Filed() {
       initial={enter ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="px-5 pt-24 sm:px-8"
+      className="px-5 pt-14 sm:px-8"
     >
       <motion.div
         aria-hidden="true"
-        initial={enter ? { scaleX: 0 } : false}
+        initial={move ? { scaleX: 0 } : false}
         animate={{ scaleX: 1 }}
         transition={{ duration: 0.9, ease: EASE_MOVE }}
         className="mb-10 h-px w-full origin-left"
@@ -40,7 +43,7 @@ export function Filed() {
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <motion.span
-              initial={enter ? { scale: 0.4, opacity: 0 } : false}
+              initial={enter ? { scale: move ? 0.4 : 1, opacity: 0 } : false}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", duration: 0.6, bounce: 0.28, delay: 0.1 }}
               className="grid h-[18px] w-[18px] place-items-center rounded-full"
@@ -66,8 +69,8 @@ export function Filed() {
 
           <h2 id="filed-title" className="mt-6 overflow-hidden">
             <motion.span
-              initial={enter ? { y: "108%" } : false}
-              animate={{ y: "0%" }}
+              initial={enter ? { y: move ? "108%" : "0%", opacity: move ? 1 : 0 } : false}
+              animate={{ y: "0%", opacity: 1 }}
               transition={{ duration: 0.66, ease: EASE_OUT, delay: 0.16 }}
               className="num block text-[clamp(2.2rem,4.4vw,3.2rem)] leading-[1.04] font-semibold tracking-[-0.04em]"
             >
@@ -82,8 +85,17 @@ export function Filed() {
               href={filed.url}
               target="_blank"
               rel="noreferrer noopener"
-              className="press group flex items-center gap-3 rounded-xl py-0 pr-[6px] pl-6 text-[14px] font-semibold"
-              style={{ background: "var(--color-t1)", color: "var(--color-bg)" }}
+              // Was a solid --color-t1 slab: the one white-filled control left
+              // anywhere in the product, and on the one screen that should feel
+              // settled rather than urgent. Same read-blue the other primaries
+              // carry, opaque, with the ring doing the accent.
+              className="press group flex items-center gap-3 rounded-xl py-0 pr-[6px] pl-6 text-[14px] font-semibold transition-[background-color,box-shadow] duration-200 ease-[var(--ease-out)] hover:brightness-[1.18]"
+              style={{
+                background: "color-mix(in oklch, var(--color-read) 22%, var(--color-p1))",
+                color: "var(--color-t1)",
+                boxShadow:
+                  "inset 0 1px 0 oklch(100% 0 0 / 0.14), 0 0 0 1px color-mix(in oklch, var(--color-read) 52%, transparent)",
+              }}
             >
               View on GitHub
               <span
@@ -105,7 +117,7 @@ export function Filed() {
             <button
               type="button"
               onClick={reset}
-              className="press text-[13px] text-t4 transition-colors duration-150 hover:text-t1"
+              className="press btn-ghost text-[13px]"
             >
               Investigate another server
             </button>

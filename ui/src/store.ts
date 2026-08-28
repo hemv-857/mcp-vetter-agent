@@ -177,7 +177,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       stages: freshStages(),
       targetPath: null,
       scanStartedAt: Date.now(),
-        manifests: [],
+      manifests: [],
       findings: [],
       summary: null,
       verdict: null,
@@ -239,7 +239,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       stages: freshStages(),
       targetPath: null,
       scanStartedAt: null,
-        manifests: [],
+      manifests: [],
       findings: [],
       summary: null,
       verdict: null,
@@ -250,5 +250,4 @@ export const useStore = create<AuditState>()((set, get) => ({
       error: null,
       errorTitle: null,
     }),
-
 }));

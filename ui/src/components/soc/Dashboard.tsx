@@ -2,19 +2,28 @@ import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from "motion/react";
 import { useStore, STAGE_BUDGET, STAGE_LABEL, STAGE_ORDER } from "../../store";
 import type { Finding, Stage, StageId, StageState } from "../../types";
-import { Graph, GraphDescription } from "../audit/Graph";
+import { Graph, GraphDescription, STAGE_GLYPH } from "../audit/Graph";
 import { TargetField } from "../landing/TargetField";
 import { Capabilities } from "../shell/Capabilities";
 import { Fault } from "../shell/Fault";
+import { ShaderBackground } from "../shell/ShaderBackground";
+import { TubesCursor } from "../shell/TubesCursor";
 import { Review } from "../review/Review";
 import { Outcome } from "../review/Outcome";
 import { Filed } from "../review/Filed";
 import { ConfidenceMark, Mark, SeverityTag } from "../shared/Primitives";
 import { CHANNEL_COLOR, EASE_OUT } from "../shared/tokens";
-import { ProofGauge, SeverityBars, useCountUp, useMotionOk } from "./instruments";
+import { ProofGauge, SeverityBars, useCountUp } from "./instruments";
 import { Icon, type IconName } from "./icons";
 import { repoSlug } from "../../lib/draft";
-import { cn, clockTime, formatDuration, usePrefersReducedMotion, useTicker } from "../../lib/util";
+import {
+  cn,
+  clockTime,
+  formatDuration,
+  useMotionOk,
+  usePrefersReducedMotion,
+  useTicker,
+} from "../../lib/util";
 import { useProbeConnection } from "../../lib/connection";
 import {
   HOLD_MS,
@@ -44,7 +53,13 @@ function Action({
   tone?: "loud" | "quiet";
 }) {
   const loud = tone === "loud";
-  const hue = "var(--color-ran)";
+  // The environment is blue now — plasma at hue 263, tube lights at #6dc3f0,
+  // which is --color-read itself. A teal control on top of that read as a
+  // leftover from a different palette. Only the two *decorative* uses of
+  // --color-ran moved: this and the Investigate button. Every other one is
+  // load-bearing — the RAN channel in the graph, "confirmed by execution", the
+  // clean verdict, the probe-server lamp — and those still mean what they say.
+  const hue = "var(--color-read)";
   return (
     <button
       type="button"
@@ -54,39 +69,30 @@ function Action({
         "text-[13.5px] whitespace-nowrap",
         "transition-[transform,box-shadow,background-color,color] duration-200 ease-[var(--ease-out)]",
         "hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985]",
+        // The hover reaction, now that the sheen is gone: the surface itself
+        // lifts a step. Filter rather than a second background, so it reads
+        // identically on the loud and quiet variants.
+        "hover:brightness-[1.18]",
         loud ? "text-t1" : "text-t2 hover:text-t1",
       )}
       style={
         loud
           ? {
-              // Layered like the product's own surfaces: a lit top edge, a hairline
-              // ring, and the dynamic hue pooling underneath rather than filling it.
-              background: `linear-gradient(180deg, color-mix(in oklch, ${hue} 26%, transparent), color-mix(in oklch, ${hue} 12%, transparent))`,
-              boxShadow: `inset 0 1px 0 oklch(100% 0 0 / 0.16), 0 0 0 1px color-mix(in oklch, ${hue} 44%, transparent), 0 12px 34px -16px color-mix(in oklch, ${hue} 70%, transparent)`,
+              // Opaque, not a translucent wash. Over a shader that is always
+              // moving, a see-through control had a different value every
+              // frame — the one button that carries the page cannot be
+              // legible only some of the time. Hover is the reaction now:
+              // one step up in surface, handled by CSS below.
+              background: `color-mix(in oklch, ${hue} 22%, var(--color-p1))`,
+              boxShadow: `inset 0 1px 0 oklch(100% 0 0 / 0.14), 0 0 0 1px color-mix(in oklch, ${hue} 52%, transparent)`,
             }
           : {
-              background: "linear-gradient(180deg, var(--color-p2), var(--color-p1))",
+              background: "var(--color-p1)",
               boxShadow:
                 "inset 0 1px 0 oklch(100% 0 0 / 0.06), 0 0 0 1px var(--color-line-2)",
             }
       }
     >
-      {/* A sheen that crosses once on hover. Pure decoration, so it is gated to
-          devices that actually hover and skipped under reduced motion. */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute inset-y-0 -left-full w-1/2 -skew-x-12",
-          "transition-[left] duration-700 ease-[var(--ease-out)] group-hover:left-[150%]",
-          "motion-reduce:hidden",
-        )}
-        style={{
-          background: `linear-gradient(90deg, transparent, ${
-            loud ? "oklch(100% 0 0 / 0.16)" : "oklch(100% 0 0 / 0.07)"
-          }, transparent)`,
-        }}
-      />
-
       {icon ? (
         <span
           className={cn(
@@ -210,16 +216,6 @@ function Reveal({
    Real vocabulary
    ------------------------------------------------------------------------ */
 
-const STAGE_ICON: Record<StageId, IconName> = {
-  clone: "download",
-  manifest: "file",
-  static: "search",
-  dynamic: "live",
-  synthesis: "target",
-  review: "users",
-  file: "external",
-};
-
 const STATE_TONE: Record<StageState, string> = {
   pending: "var(--color-t4)",
   active: "var(--color-ran)",
@@ -229,26 +225,39 @@ const STATE_TONE: Record<StageState, string> = {
   awaiting: "var(--color-human)",
 };
 
-const VERDICT_COPY: Record<string, { word: string; line: string; colour: string }> = {
+/**
+ * `colour` is the verdict's own severity and still types the word itself.
+ * `glow` is the wash behind it, and it answers one question only — is this the
+ * one verdict that must stop you. Red there, the site's blue everywhere else,
+ * so the alarm means something by being rare rather than by being loud.
+ */
+const VERDICT_COPY: Record<
+  string,
+  { word: string; line: string; colour: string; glow: string }
+> = {
   HIGH: {
     word: "High risk",
     line: "Do not connect an agent to this server.",
     colour: "var(--color-critical)",
+    glow: "var(--color-critical)",
   },
   MEDIUM: {
     word: "Medium risk",
     line: "Connect only with the findings below understood.",
     colour: "var(--color-medium)",
+    glow: "var(--color-read)",
   },
   LOW: {
     word: "Low risk",
     line: "Minor defects. Nothing warrants a public report.",
     colour: "var(--color-low)",
+    glow: "var(--color-read)",
   },
   CLEAN: {
     word: "Clean",
     line: "No rule fired and no probe reproduced anything.",
     colour: "var(--color-ran)",
+    glow: "var(--color-read)",
   },
 };
 
@@ -292,15 +301,31 @@ function BackgroundField() {
   return (
     <motion.div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-[-10%] z-0"
-      style={{
-        y: drift,
-        background:
-          "radial-gradient(58% 42% at 14% 4%, oklch(80% 0.125 172 / 0.13), transparent 62%)," +
-          "radial-gradient(52% 38% at 88% 12%, oklch(78% 0.105 233 / 0.11), transparent 64%)," +
-          "radial-gradient(64% 46% at 52% 96%, oklch(80% 0.125 172 / 0.07), transparent 70%)",
-      }}
-    />
+      // -140px, not -10%. The overscan has to exceed the parallax or the
+      // layer's own bottom edge scrolls into view: drift reaches -120px, while
+      // -10% is only ~98px on a 982px viewport and less on anything shorter,
+      // which left a strip of bare ground at the foot of the page. A fixed
+      // inset is the one that holds at every viewport height.
+      className="pointer-events-none fixed inset-[-140px] z-0"
+      style={{ y: drift }}
+    >
+      {/* One WebGL context for the whole session, and it sits here rather than
+          in any one act because this layer already spans all of them.
+
+          The opacity is measured, not chosen, and it is low because there is
+          almost nothing left to spend. --color-t4 is the dimmest token here and
+          index.css commits it to 4.5:1; on bare ground under the pools above it
+          already measures 4.80:1, so the entire budget for adding light to the
+          background is 0.30 of contrast ratio. The plasma peaks at 0.127
+          relative luminance against a ground of 0.0017, and t4 crosses 4.5:1 at
+          alpha 0.026 — so the budget was bought rather than borrowed. The three
+          radial pools that used to sit here are gone: they lay directly on the
+          ground where body text is read, and the plasma now does the job they
+          were added for. That one removal took the ceiling from 0.026 to 0.197,
+          and halving body::before took it to 0.238. 0.22 is that, with margin —
+          t4 holds 4.5:1, t3 5.6:1, t1 14.4:1 at the worst point on screen. */}
+      <ShaderBackground className="absolute inset-0 opacity-[0.15]" />
+    </motion.div>
   );
 }
 
@@ -479,7 +504,14 @@ function InstrumentSection() {
     <section
       ref={ref}
       aria-label="Investigation"
-      className="relative flex min-h-[100svh] flex-col px-5 pt-10 sm:px-8"
+      className={cn(
+        "relative flex flex-col px-5 pt-10 sm:px-8",
+        // A screen tall while the audit is the thing you are watching. Once it
+        // has settled the band contracts to ~390px and the rest of that 100svh
+        // was empty floor between the drawing and the verdict, which read as a
+        // gap rather than as breathing room.
+        settled ? "pb-8" : "min-h-[100svh]",
+      )}
     >
       {/* Pulled up as the link falls away: one continuous handover, not a swap. */}
       <motion.div
@@ -492,11 +524,16 @@ function InstrumentSection() {
           <h1 className="num truncate text-[clamp(1.4rem,2.6vw,2.1rem)] leading-[1.1] font-light tracking-[-0.03em] text-t1">
             {repoSlug(repoUrl)}
           </h1>
-          <p className="mt-3 text-[14px] leading-[1.6] text-t3">{error ?? PHASE_LINE[phase] ?? ""}</p>
+          {/* The phase line is the only running commentary the audit has, so it
+              is also the live region: a reader who cannot see the graph still
+              hears the audit move from lane to lane. */}
+          <p role="status" aria-live="polite" className="mt-3 text-[14px] leading-[1.6] text-t3">
+            {error ?? PHASE_LINE[phase] ?? ""}
+          </p>
         </div>
 
         <motion.div style={{ scale, opacity: fade }} className="mt-6 flex-1">
-          <div className="flex h-full min-h-[48vh] items-center">
+          <div className={cn("flex h-full items-center", settled ? "" : "min-h-[48vh]")}>
             <div className="w-full">
               <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11.5px] text-t3">
                 <span className="inline-flex items-center gap-2">
@@ -585,7 +622,11 @@ function VerdictSection({
       aria-label="Verdict"
       // The top bar is sticky, so an anchor that lands flush with the viewport
       // lands underneath it. Clear its height on the way in.
-      className="relative flex min-h-[100svh] scroll-mt-40 items-center px-5 py-16 sm:scroll-mt-24 sm:px-8"
+      // 78svh, not a full screen. The verdict still gets a stage of its own —
+      // it is the sentence the whole audit exists to produce — but centring it
+      // in 100svh under a band that now stops at ~640px meant a third of a
+      // screen of empty floor before you reached the word.
+      className="relative flex min-h-[78svh] scroll-mt-40 items-center px-5 py-14 sm:scroll-mt-24 sm:px-8"
     >
       <motion.div style={{ y: rise, opacity: fade }} className="mx-auto w-full max-w-[1500px]">
         <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -603,7 +644,7 @@ function VerdictSection({
                 <div
                   className="aura-breathe absolute inset-0"
                   style={{
-                    background: `radial-gradient(46% 46% at 40% 50%, color-mix(in oklch, ${copy.colour} 40%, transparent), transparent 72%)`,
+                    background: `radial-gradient(46% 46% at 40% 50%, color-mix(in oklch, ${copy.glow} 40%, transparent), transparent 72%)`,
                   }}
                 />
               </motion.div>
@@ -806,6 +847,8 @@ function DeclaredPanel() {
 function FindingsPanel() {
   const findings = useStore((s) => s.findings);
   const sampleData = useStore((s) => s.sampleData);
+  /** A finished audit that found nothing is a result, not a waiting room. */
+  const settled = useStore((s) => s.verdict !== null || s.phase === "error");
 
   return (
     <Panel className="pb-2">
@@ -827,8 +870,9 @@ function FindingsPanel() {
       ) : null}
       {findings.length === 0 ? (
         <Empty>
-          No findings. Findings appear once a scan returns — static rules produce candidates, and
-          only a probe running the target in isolation produces a confirmation.
+          {settled
+            ? "Nothing to report. No static rule fired and no probe reproduced anything, so neither lane has a finding to show."
+            : "No findings yet. Static rules produce candidates, and only a probe running the target in isolation produces a confirmation."}
         </Empty>
       ) : (
         <div className="mt-3 overflow-x-auto px-5 pb-3">
@@ -891,6 +935,7 @@ function StagesPanel() {
         <span aria-hidden="true" className="absolute top-3 bottom-8 left-[35px] w-px bg-line-2" />
         {STAGE_ORDER.map((id) => {
           const stage = by(id);
+          const StageGlyph = STAGE_GLYPH[id];
           const state = stage?.state ?? "pending";
           const tone = STATE_TONE[state];
           const budget = STAGE_BUDGET[id];
@@ -910,7 +955,7 @@ function StagesPanel() {
                 className="relative grid h-7 w-7 shrink-0 place-items-center rounded-lg ring-1 ring-line"
                 style={{ color: tone, background: "var(--color-p1)" }}
               >
-                <Icon name={STAGE_ICON[id]} size={14} strokeWidth={1.9} />
+                <StageGlyph size={14} strokeWidth={1.9} absoluteStrokeWidth />
                 {state === "active" && !still ? (
                   <span
                     className="absolute inset-0 animate-ping rounded-lg opacity-60"
@@ -939,12 +984,54 @@ function StagesPanel() {
  */
 function RecordSection() {
   const findings = useStore((s) => s.findings);
+  /**
+   * The findings table only earns a column of its own once it has a real list
+   * in it. Four is where it stops looking stranded beside the lanes; it is a
+   * threshold, not a measurement, and the layout below it is the honest shape
+   * for "there was not much to say".
+   */
+  const holdsTheColumn = findings.length >= 4;
+
+  /**
+   * Panel order is fixed; only the arrangement changes. Both branches pair the
+   * tall panel in each column with a short one, because the earlier split — the
+   * table alone against lanes + severity + declared — ran one column out ~330px
+   * before the other and left a hole in the page rather than a margin.
+   */
+  const lanes = (
+    <Reveal delay={0.1}>
+      <StagesPanel />
+    </Reveal>
+  );
+  const severity = (
+    <Reveal delay={0.14}>
+      <Panel className="pb-4">
+        {/* The legend describes a chart. With nothing to plot there is no chart
+            to read, so the caption goes with it. */}
+        <PanelHead
+          title="Severity"
+          sub={findings.length ? "Filled is proven. Hatched is only suspected." : undefined}
+        />
+        <div className="pt-2">
+          <SeverityBars findings={findings} />
+        </div>
+      </Panel>
+    </Reveal>
+  );
+  const declared = (
+    <Reveal delay={0.18}>
+      <DeclaredPanel />
+    </Reveal>
+  );
 
   return (
     <section
       id="record"
       aria-label="The record"
-      className="relative scroll-mt-40 px-5 pb-24 sm:scroll-mt-24 sm:px-8"
+      // pb-12, not pb-24: every section that can follow this one opens with
+      // its own pt-24, and the two stacked to ~190px of empty floor above
+      // "No report was warranted".
+      className="relative scroll-mt-40 px-5 pb-12 sm:scroll-mt-24 sm:px-8"
     >
       <div className="mx-auto w-full max-w-[1500px]">
         <div className="border-t border-line pt-10 pb-8">
@@ -959,27 +1046,37 @@ function RecordSection() {
           </Panel>
         </Reveal>
 
-        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <Reveal delay={0.05}>
-            <FindingsPanel />
-          </Reveal>
-          <div className="flex flex-col gap-4">
-            <Reveal delay={0.1}>
-              <StagesPanel />
-            </Reveal>
-            <Reveal delay={0.14}>
-              <Panel className="pb-4">
-                <PanelHead title="Severity" sub="Filled is proven. Hatched is only suspected." />
-                <div className="pt-2">
-                  <SeverityBars findings={findings} />
-                </div>
-              </Panel>
-            </Reveal>
-            <Reveal delay={0.18}>
-              <DeclaredPanel />
-            </Reveal>
+        {holdsTheColumn ? (
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Declared sits under the table on purpose: what the server says
+                it can do, directly beneath what it was caught doing. */}
+            <div className="flex min-w-0 flex-col gap-4">
+              <Reveal delay={0.05}>
+                <FindingsPanel />
+              </Reveal>
+              {declared}
+            </div>
+            <div className="flex flex-col gap-4">
+              {lanes}
+              {severity}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Nothing to list: the table stops reserving a column, and the lanes —
+             seven rows tall whatever happened — take one side on their own. */
+          <div className="flex flex-col gap-4">
+            <Reveal delay={0.05}>
+              <FindingsPanel />
+            </Reveal>
+            <div className="grid items-start gap-4 sm:grid-cols-2">
+              {lanes}
+              <div className="flex flex-col gap-4">
+                {severity}
+                {declared}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1038,6 +1135,29 @@ export function Dashboard() {
   return (
     <div className="relative min-h-[100svh] bg-bg">
       <BackgroundField />
+      {/* z-1: above the plasma at z-0, below the content at z-10 — exactly the
+          slot asked for. pointer-events-none is not optional: the library binds
+          its listeners to document.body, so a full-viewport canvas that took
+          pointer events would swallow every click in the app while the effect
+          itself would work either way. */}
+      {/* mix-blend-mode: screen is what keeps the plasma visible. The tubes
+          renderer composites its scene over black, and an opaque black canvas
+          across the whole viewport left only 20% of the layer below showing —
+          the background looked deleted. Screen maps black to a no-op and only
+          ever adds light, so the plasma comes back untouched and the tubes read
+          as glow rather than as geometry on a dark card. It also means this
+          layer can only brighten what it crosses, never darken it. */}
+      <TubesCursor
+        className={cn(
+          "pointer-events-none fixed inset-0 z-[1] mix-blend-screen",
+          "transition-opacity duration-700 ease-[var(--ease-out)]",
+          // Full strength on the landing, where it is the only thing moving.
+          // Pulled back once the instrument is on screen: the audit graph draws
+          // in the same blues and the trail was competing with the one drawing
+          // the operator is meant to be reading.
+          idle ? "opacity-[0.8]" : "opacity-[0.3]",
+        )}
+      />
       {!idle ? <ScrollProgress /> : null}
       <div className="relative z-10">
         <TopBar />

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useStore } from "../../store";
 import { declineFiling, fileIssue } from "../../lib/scan";
-import { cn, useEntrance } from "../../lib/util";
+import { cn, useEntrance, useMotionOk } from "../../lib/util";
 import { Markdown } from "../shared/Markdown";
 import { EASE_MOVE, EASE_OUT } from "../shared/tokens";
 
-const HOLD_MS = 1000;
+/** The deliberate press that authorises publication. */
+const AUTHORIZE_HOLD_MS = 1000;
 
 /**
  * THE BOUNDARY.
@@ -47,7 +48,7 @@ function HoldToAuthorize({
       timer.current = null;
       setHolding(false);
       onDone();
-    }, HOLD_MS);
+    }, AUTHORIZE_HOLD_MS);
   }, [disabled, onDone]);
 
   useEffect(() => stop, [stop]);
@@ -102,7 +103,7 @@ function HoldToAuthorize({
             background: "var(--color-human)",
             clipPath: holding ? "inset(0 0 0 0)" : "inset(0 100% 0 0)",
             transition: holding
-              ? `clip-path ${reduce ? 220 : HOLD_MS}ms linear`
+              ? `clip-path ${reduce ? 220 : AUTHORIZE_HOLD_MS}ms linear`
               : "clip-path 180ms cubic-bezier(0.23,1,0.32,1)",
           }}
         />
@@ -156,6 +157,7 @@ export function Review() {
   const sampleData = useStore((s) => s.sampleData);
   const findings = useStore((s) => s.findings);
   const [editing, setEditing] = useState(false);
+  const move = useMotionOk();
   const still = useReducedMotion();
 
   if (!draft || (phase !== "awaiting_approval" && phase !== "filing")) return null;
@@ -183,13 +185,13 @@ export function Review() {
       initial={enter ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5, ease: EASE_OUT }}
-      className="px-5 pt-24 sm:px-8"
+      className="px-5 pt-14 sm:px-8"
     >
       {/* The threshold. One line, drawn once, where the machine stops and a
           person starts — the only decorative rule in the product. */}
       <motion.div
         aria-hidden="true"
-        initial={enter ? { scaleX: 0, opacity: 0 } : false}
+        initial={enter ? { scaleX: move ? 0 : 1, opacity: 0 } : false}
         animate={{ scaleX: 1, opacity: 1 }}
         transition={{ duration: 0.85, ease: EASE_MOVE }}
         className="mb-10 h-px w-full origin-left"
@@ -243,29 +245,18 @@ export function Review() {
             />
           </dl>
 
-          {/* Reasons the gate is shut, stated plainly, one line each. */}
-          <div className="mt-9 flex flex-col gap-3">
-            {sampleData ? (
-              <p
-                className="max-w-[56ch] text-[12.5px] leading-[1.6]"
-                style={{ color: "var(--color-high)" }}
-              >
-                Replayed from a captured report. Filing would report defects nobody verified.
-              </p>
-            ) : null}
-            {!filable ? (
-              <p className="max-w-[56ch] text-[12.5px] leading-[1.6] text-t3">
-                Local path — no repository to file against. Investigate a GitHub URL to enable
-                filing.
-              </p>
-            ) : null}
-            {filable && !tokenReady ? (
-              <p className="max-w-[56ch] text-[12.5px] leading-[1.6] text-t3">
-                Filing is unavailable: the probe server has no{" "}
-                <span className="num">GITHUB_TOKEN</span>.
-              </p>
-            ) : null}
-          </div>
+          {/* Said once. Whichever condition is shutting the gate is named at the
+              control itself, in `blockReason`; repeating it here put the same
+              sentence twice within a hundred pixels. This carries only what the
+              control cannot — that the report itself is not trustworthy. */}
+          {sampleData ? (
+            <p
+              className="mt-9 max-w-[56ch] text-[12.5px] leading-[1.6]"
+              style={{ color: "var(--color-high)" }}
+            >
+              Replayed from a captured report. Filing would report defects nobody verified.
+            </p>
+          ) : null}
 
           <label className="mt-10 flex max-w-[54ch] cursor-pointer items-start gap-3.5">
             <input
@@ -310,14 +301,19 @@ export function Review() {
             </span>
             <span className="text-[13px] leading-[1.55] text-t2">
               I have read this report and understand that filing publishes it publicly on{" "}
-              {/* A target can be a long path; break it rather than letting it
-                  run out of the column and under the report beside it. */}
-              <span className="num break-all text-t1">{draft.targetRepo}</span> and cannot be
+              {/* Wraps at the slash-free boundaries first and only splits a word
+                  that genuinely cannot fit. `break-all` split every slug mid-
+                  word — "fixtur / es/vulnerable_server" — even with room to
+                  spare on the next line. */}
+              <span className="num break-words text-t1">{draft.targetRepo}</span> and cannot be
               undone.
             </span>
           </label>
 
-          <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-5">
+          {/* Top-aligned, and the decline matches the hold control's height, so
+              the two read as one row of choices. Centring the row instead put
+              "Don't file it" halfway down the hold button's hint line. */}
+          <div className="mt-9 flex flex-wrap items-start gap-x-8 gap-y-5">
             <HoldToAuthorize
               disabled={blocked}
               reason={blockReason}
@@ -327,7 +323,7 @@ export function Review() {
               type="button"
               onClick={declineFiling}
               disabled={filing}
-              className="press text-[13px] text-t4 transition-colors duration-150 hover:text-t1 disabled:opacity-40"
+              className="press btn-ghost h-[56px] text-[13px]"
             >
               Don&rsquo;t file it
             </button>
@@ -343,7 +339,7 @@ export function Review() {
               type="button"
               onClick={() => setEditing((v) => !v)}
               disabled={filing}
-              className="press label transition-colors duration-150 hover:text-t1 disabled:opacity-40"
+              className="press btn-ghost label"
             >
               {editing ? "done" : "edit"}
             </button>
@@ -353,6 +349,17 @@ export function Review() {
             className="surface overflow-hidden rounded-xl"
             style={{ boxShadow: "inset 0 1px 0 oklch(100% 0 0 / 0.05), 0 0 0 1px var(--color-line-2)" }}
           >
+            {/* Same window the target was typed into, at the other end of the
+                audit. One aria-hidden line: it names the artefact, and the
+                real heading above it already says "The report". */}
+            <div className="terminal-bar" aria-hidden="true">
+              <span className="label" style={{ color: "var(--color-t4)" }}>
+                report.md
+              </span>
+              <span className="label ml-auto" style={{ color: "var(--color-t4)" }}>
+                {filing ? "filing" : "draft"}
+              </span>
+            </div>
             {editing ? (
               <div className="flex flex-col gap-3 p-4">
                 <label className="sr-only" htmlFor="draft-title">

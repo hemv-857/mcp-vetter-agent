@@ -58,3 +58,13 @@ export function useEntrance(): boolean {
   const [animate] = useState(() => typeof document === "undefined" || !document.hidden);
   return animate;
 }
+
+/**
+ * Animate only when motion is welcome *and* the page can actually paint. A tab
+ * that mounts in the background gets no animation frames, so a mount animation
+ * would leave its element stuck at its `initial` — an invisible gauge, a flat
+ * bar, a report that never slides in. Both conditions collapse into one answer.
+ */
+export function useMotionOk(): boolean {
+  return useEntrance() && !usePrefersReducedMotion();
+}

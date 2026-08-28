@@ -1,14 +1,21 @@
 import type { DraftIssue, Finding, Summary } from "../types";
 
-export function repoSlug(repoUrl: string): string {
+/**
+ * What to call the target on screen. A URL names it by owner/repo; a local
+ * path names it by its last two segments, because everything left of those is
+ * whose machine it is. Returning the absolute path put the identifying end of
+ * it past the truncation — the heading read `/Users/someone/Deskt…`.
+ */
+export function repoSlug(target: string): string {
   try {
-    const url = new URL(repoUrl);
+    const url = new URL(target);
     const segments = url.pathname.split("/").filter(Boolean);
     if (segments.length >= 2) return `${segments[0]}/${segments[1]!.replace(/\.git$/, "")}`;
   } catch {
-    /* not a URL — a local path */
+    const segments = target.split("/").filter(Boolean);
+    if (segments.length >= 2) return segments.slice(-2).join("/");
   }
-  return repoUrl;
+  return target;
 }
 
 function location(finding: Finding): string {
@@ -83,10 +90,7 @@ export function buildDraft(
   return {
     title: `Security audit: ${summary.critical + summary.high} high-risk finding${
       summary.critical + summary.high === 1 ? "" : "s"
-      // The last segment, not the second: a local target is an absolute path,
-      // and index 1 of "/Users/me/servers/foo" is "Users" — a report titled
-      // after someone's home directory.
-    } in ${slug.split("/").filter(Boolean).pop() ?? slug}`,
+    } in ${slug.split("/").pop() ?? slug}`,
     body,
     labels: ["security", "vulnerability"],
     targetRepo: slug,

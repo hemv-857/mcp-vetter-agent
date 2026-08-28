@@ -18,23 +18,26 @@
 
    Seven hues carry meaning and nothing else does: two channels (what the source
    READ, what execution RAN), one boundary (HUMAN), four severities. Everything
-   else is graphite.
+   else is neutral — and its hue is 263, measured off the plasma layer behind
+   the app (median 263, IQR 262-266), so the chrome sits in the same light as
+   the background rather than beside it. The seven are untouched: they are the
+   legend, and the legend does not follow the wallpaper.
    ------------------------------------------------------------------------- */
 @theme {
-  --color-bg: oklch(11.8% 0.008 236);
-  --color-p1: oklch(15.6% 0.0095 236);
-  --color-p2: oklch(19.4% 0.011 236);
-  --color-p3: oklch(24% 0.012 236);
+  --color-bg: oklch(11.8% 0.008 263);
+  --color-p1: oklch(15.6% 0.0095 263);
+  --color-p2: oklch(19.4% 0.011 263);
+  --color-p3: oklch(24% 0.012 263);
 
   --color-line: oklch(100% 0 0 / 0.065);
   --color-line-2: oklch(100% 0 0 / 0.13);
 
-  --color-t1: oklch(97% 0.004 236);
-  --color-t2: oklch(80% 0.008 236);
+  --color-t1: oklch(97% 0.004 263);
+  --color-t2: oklch(80% 0.008 263);
   /* measured against p1/p2/p3, not eyeballed: t4 sits on raised
      surfaces and must clear 4.5:1 there, not only on the ground */
-  --color-t3: oklch(68% 0.01 236);
-  --color-t4: oklch(62% 0.011 236);
+  --color-t3: oklch(68% 0.01 263);
+  --color-t4: oklch(62% 0.011 263);
 
   /* the two channels */
   --color-read: oklch(78% 0.105 233);
@@ -80,8 +83,10 @@
     overflow-x: clip;
   }
 
-  /* One atmospheric pool per channel, fixed behind everything. Depth comes from
-     this and from luminance layering — not from drop shadows. */
+  /* One atmospheric pool per channel. Halved from 0.085/0.05: this layer paints
+     OVER the content, so every point of alpha here compresses text contrast on
+     both sides at once, and the plasma below now supplies the depth these pools
+     were carrying alone. What is left is a whisper of the two channel hues. */
   body::before {
     content: "";
     position: fixed;
@@ -89,8 +94,8 @@
     z-index: 0;
     pointer-events: none;
     background:
-      radial-gradient(78% 58% at 78% -6%, oklch(78% 0.105 233 / 0.085), transparent 64%),
-      radial-gradient(70% 52% at 12% 104%, oklch(80% 0.125 172 / 0.05), transparent 66%);
+      radial-gradient(78% 58% at 78% -6%, oklch(78% 0.105 233 / 0.042), transparent 64%),
+      radial-gradient(70% 52% at 12% 104%, oklch(72% 0.095 263 / 0.03), transparent 66%);
   }
 
   /* Film grain kills the flat-fill look at zero layout cost. Fixed layer only. */
@@ -183,6 +188,64 @@
     transform: scale(0.97);
   }
 
+  /* The report is the one artefact that leaves the machine, and the console
+     already speaks terminal at the point of entry. Same window language here:
+     a titled bar, a rule, monospace measurements underneath. */
+  .terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--color-line);
+    background: oklch(0% 0 0 / 0.24);
+  }
+
+  /* Every quiet control in the product, in one place.
+
+     These were bare text buttons — colour change on hover and nothing else. A
+     13px line of text is about 18px tall, so the hit area was less than half
+     what a finger needs and there was no boundary at all to say the thing was
+     pressable. Same shape everywhere now: a real target, a surface on hover,
+     and the global :focus-visible ring still does the keyboard half. */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 36px;
+    padding-inline: 0.7rem;
+    border-radius: 8px;
+    color: var(--color-t3);
+    transition:
+      color 150ms var(--ease-out),
+      background-color 150ms var(--ease-out),
+      box-shadow 150ms var(--ease-out);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--color-t1);
+    background: var(--color-p2);
+    box-shadow: inset 0 0 0 1px var(--color-line);
+  }
+  .btn-ghost:disabled {
+    opacity: 0.4;
+  }
+  /* A ghost that has to stand on its own — the only control on a screen, with
+     no neighbours to borrow context from — gets a resting edge so it does not
+     read as a stray line of text. */
+  .btn-outline {
+    background: var(--color-p1);
+    box-shadow: inset 0 0 0 1px var(--color-line-2);
+    color: var(--color-t2);
+  }
+  /* A finger needs the full 44px; a cursor does not, and 44px of dead chrome
+     around a text link on a desktop reads as a mistake. */
+  @media (pointer: coarse) {
+    .btn-ghost {
+      min-height: 44px;
+      padding-inline: 0.9rem;
+    }
+  }
+
   /* The one field in the product. Its focus ring is CSS, not an animated
      inline style, so it survives whatever happens to the JS. */
   .field {
@@ -217,17 +280,48 @@
      a phone gets a proportional strip instead of a tiny graph floating in a
      desktop-sized void. Settling is a change of height and luminance. */
   .graph-band {
-    height: min(470px, 34vw);
+    height: min(518px, 37vw);
+    /* The instrument gets its own dark ground. Both channel hues are cool and
+       so is the shader behind them, so the drawing was reading blue-on-blue —
+       the contrast was being spent on the background instead of on the two
+       lanes the operator has to tell apart. Sinking it below the page rather
+       than raising it says the same thing the border does: you are looking
+       into an instrument, not at a card. */
+    background:
+      radial-gradient(
+        120% 100% at 50% 0%,
+        oklch(13% 0.014 263 / 0.82),
+        oklch(8.5% 0.012 263 / 0.82)
+      );
+    /* A hairline carrying a trace of the read channel, so the frame belongs to
+       the instrument rather than to the page chrome, over a dark top edge that
+       keeps the panel sunk into the surface instead of floating on it. */
+    box-shadow:
+      /* Mixing into --color-line-2 was the mistake: that token is already
+         white at 0.13 alpha, so the mix inherited its transparency and the
+         frame came out at roughly a third of an opacity it never had. An
+         explicit alpha instead — still a hairline, but one you can find. */
+      inset 0 0 0 1px oklch(72% 0.09 233 / 0.42),
+      inset 0 0 0 1px oklch(100% 0 0 / 0.06),
+      inset 0 1px 0 oklch(0% 0 0 / 0.55);
+    border-radius: 14px;
+    /* The drawing measured edge-to-edge inside this box: its inked content ran
+       from y -7.3 to 311.8 against a viewBox of -6 to 312, so it had no margin
+       at all and clipped its own top by a hair. The box grows to make room
+       rather than the drawing shrinking to fit — the heights below are raised
+       by exactly the padding they now spend. */
+    padding-inline: clamp(8px, 2vw, 26px);
+    padding-block: clamp(10px, 1.6vw, 22px);
     /* Deliberate: height, not transform. Scaling would squash the drawing
        inside; this reflows around it, once per audit, on one element. */
     transition: height 660ms var(--ease-move);
   }
   .graph-band[data-settled="true"] {
-    height: min(344px, 26vw);
+    height: min(392px, 29vw);
   }
   @media (max-width: 640px) {
-    .graph-band { height: 42vw; }
-    .graph-band[data-settled="true"] { height: 34vw; }
+    .graph-band { height: 47vw; }
+    .graph-band[data-settled="true"] { height: 39vw; }
   }
 }
 

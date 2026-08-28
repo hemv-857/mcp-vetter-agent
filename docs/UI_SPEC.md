@@ -1,5 +1,9 @@
 # UI Specification — MCP Vetting Agent
 
+> **Superseded.** This is the pre-build plan, kept for the record. The console
+> that shipped is a different shape — see [`ui/DESIGN_DIRECTION.md`](../ui/DESIGN_DIRECTION.md) for what it
+> actually is. Where the two disagree, the code and `ui/DESIGN_DIRECTION.md` are right.
+
 ## Overview
 
 A single-page web interface for the MCP Vetting Agent. Users paste a GitHub URL,

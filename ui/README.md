@@ -56,28 +56,40 @@ approval gate. It is off by default and never silent.
 
 ## Architecture
 
+One page, four acts, no router. `Dashboard` owns the whole surface; each act
+renders for its own phase and the reader moves between them by scrolling.
+
 ```
 src/
-├── main.tsx            entry
-├── App.tsx             shell, stage switching, health polling
+├── main.tsx            entry — mounts Dashboard
 ├── store.ts            the single Zustand store
 ├── types.ts
 ├── lib/
-│   ├── mcp.ts          MCP client, reconnect, tool-result unwrapping
+│   ├── mcp.ts          MCP client, lazy SDK load, reconnect, result unwrapping
+│   ├── connection.ts   health polling; never interrupts a running audit
 │   ├── scan.ts         orchestration: clone → manifest → static ‖ dynamic → synthesis
 │   ├── report.ts       report normalisation, merge, summary, verdict
 │   ├── draft.ts        builds the GitHub security report
-│   └── util.ts
+│   ├── reveal.ts       the walk — replays a finished record in causal order
+│   └── util.ts         cn, durations, reduced-motion and entrance gates
 └── components/
-    ├── shell/          Chrome (identity, target, capabilities, status), Fault
-    ├── landing/        Landing stage, TargetField
-    ├── visuals/        Chamber — the landing's CSS-3D containment anchor
-    ├── audit/          Graph (the live audit graph), Investigation, Stream
-    ├── verdict/        Verdict, evidence strip, severity distribution
-    ├── findings/       Findings list and expanding detail
+    ├── soc/            Dashboard (the page), instruments, icons
+    ├── shell/          Capabilities, Fault, ShaderBackground, TubesCursor
+    ├── landing/        TargetField — the one input
+    ├── audit/          Graph and its text equivalent
     ├── review/         Review (the human boundary), Outcome, Filed
     └── shared/         tokens, Primitives, Markdown
 ```
+
+### The walk
+
+A replayed audit settles in tens of milliseconds, so every stage would reach its
+final state inside one frame and the graph would snap. `lib/reveal.ts` walks the
+*finished* record back out beat by beat so it can be read — and it never runs
+while work is actually happening. During a live scan the beat is `Infinity`,
+nothing is gated, and a 300 s Docker probe animates because it genuinely takes
+300 s. The walk replays the outcomes the stages reported, `skipped` and `failed`
+included; no stage is ever drawn as running that did not run.
 
 ### Orchestration
 
@@ -122,25 +134,24 @@ rule in the file.
 
 ### The stages
 
-**Landing.** A left rail carrying identity, proposition and the target field —
-the brightest element in the viewport — against a hexagonal containment chamber
-that occupies the open field, bleeding past the right edge. The floor states
-what this environment can actually do.
+**Landing.** One proposition and one field, dressed as a terminal window — the
+brightest element in the viewport — over the atmosphere. The chrome states what
+this environment can actually do before anything is typed into it.
 
 **Investigation.** The audit graph owns the screen while it runs: nodes activate,
 lanes carry pulses, elapsed time ticks against the tool's real budget, and one
-evidence mote travels per real finding. Below it, the target's declared surface
-and the transcript. The moment there is a verdict the graph dims and hands over.
+evidence mote travels per real finding. The moment there is a verdict the band
+contracts and hands over.
 
-**Verdict.** The word rises out of its own line. Beside it, one mark per finding
-— filled means reproduced by execution — and the severity distribution as a
-single proportional bar rather than a wall of tiles.
+**Verdict.** The word at full volume, the four counts that produced it, and the
+proof gauge — how much of this verdict a probe reproduced, which is the only
+honest ratio this product has. There is no health score.
 
-**Findings.** One scannable line each; opening one expands in place into what the
-source showed (READ) against what execution showed (RAN), side by side where both
-exist.
+**The record.** Everything the audit saw: the findings table, what the server
+declared, the seven lanes with their real timings, and the severity distribution
+split filled-versus-hatched by proof.
 
-**Review.** A violet threshold, three consequences stated as facts, the report
+**Review.** A violet threshold, four consequences stated as facts, the report
 itself, and a sustained press rather than a click.
 
 ### Colour
@@ -149,14 +160,19 @@ Seven hues carry meaning and nothing else does: two channels (`--read`, `--ran`)
 one boundary (`--human`), and four severities. Everything else is graphite.
 Dark only — there is no light theme and no toggle.
 
-### The chamber
+### The atmosphere
 
-Six hairline panels arranged as a hexagonal prism, capped top and bottom, with a
-specimen suspended inside and a plane sweeping through. Built from CSS 3D
-transforms rather than Three.js: a dozen GPU-composited layers at zero bundle
-cost, and far more art direction than a generic icosphere. The base spin is a CSS
-keyframe so it runs off the main thread; only the pointer parallax is spring-
-driven in JS, and reduced motion holds it still.
+Two decorative layers sit under the content and never take a pointer event.
+`ShaderBackground` is one WebGL fragment shader for the whole session — a plasma
+whose hue was measured, not chosen, at 263 so the chrome sits in the same light
+as the ground rather than beside it. `TubesCursor` draws ribbons of light along
+the pointer above it, in the console's own channel hues, composited with
+`mix-blend-mode: screen` so it can only ever add light to the layer below.
+
+Its opacity is a measurement, not a taste: `--color-t4` is committed to 4.5:1,
+and the plasma is set at the alpha where t4 still holds that at the brightest
+point on screen. Both layers are gated on `prefers-reduced-motion` — under it
+they are not dimmed, they are never downloaded.
 
 ### Motion
 
@@ -178,7 +194,7 @@ Two traps worth recording:
 ## Accessibility
 
 Every colour carrying text clears WCAG AA on the ground and on all three raised
-surfaces, verified by computation rather than by eye. Single `<h1>`, skip link,
+surfaces, verified by computation rather than by eye. Single `<h1>`,
 one focus treatment, live regions on connection and phase, combobox semantics
 with `aria-activedescendant`, and no horizontal overflow at 390 px. The audit
 graph is decorative with a visually hidden ordered list carrying the same stages,

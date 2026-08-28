@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { useStore } from "../../store";
 import { EASE_OUT } from "../shared/tokens";
-import { useEntrance } from "../../lib/util";
+import { useEntrance, useMotionOk } from "../../lib/util";
 
 /**
  * The audit ended without crossing the boundary — either nothing warranted a
@@ -14,6 +14,7 @@ export function Outcome() {
   const summary = useStore((s) => s.summary);
   const reset = useStore((s) => s.reset);
   const enter = useEntrance();
+  const move = useMotionOk();
 
   if (phase !== "complete" || !summary) return null;
 
@@ -23,12 +24,15 @@ export function Outcome() {
   return (
     <motion.section
       aria-labelledby="outcome-title"
-      initial={enter ? { opacity: 0, y: 12 } : false}
+      initial={enter ? { opacity: 0, y: move ? 12 : 0 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.2 }}
-      className="px-5 pt-24 sm:px-8"
+      className="px-5 pt-14 sm:px-8"
     >
-      <div className="flex max-w-[880px] flex-wrap items-end justify-between gap-x-16 gap-y-8">
+      {/* justify-between across 880px stranded the button in open space beside
+          a 52ch paragraph, reading as something left behind rather than the
+          way out. It belongs under the sentence that explains it. */}
+      <div className="max-w-[880px]">
         <div className="min-w-0">
           <span className="label">Nothing was filed</span>
           <h2
@@ -49,7 +53,7 @@ export function Outcome() {
         <button
           type="button"
           onClick={reset}
-          className="press text-[13px] text-t4 transition-colors duration-150 hover:text-t1"
+          className="press btn-ghost btn-outline mt-9 text-[13px]"
         >
           Investigate another server
         </button>

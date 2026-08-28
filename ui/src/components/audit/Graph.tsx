@@ -64,11 +64,15 @@ const SHORT: Record<StageId, string> = {
 };
 
 /**
- * One glyph per stage. The icon names the act; the *shape around it* still
- * carries the channel — square/hollow for what was only read, circle/filled for
- * what actually ran. The icon is the label, the silhouette is the argument.
+ * One glyph per stage, and the only one — the lanes panel reads this same table.
+ * A stage that was a container in the graph and a radio wave in the list was one
+ * concept wearing two faces on one page.
+ *
+ * The icon names the act; the *shape around it* still carries the channel —
+ * square/hollow for what was only read, circle/filled for what actually ran. The
+ * icon is the label, the silhouette is the argument.
  */
-const GLYPH: Record<StageId, LucideIcon> = {
+export const STAGE_GLYPH: Record<StageId, LucideIcon> = {
   clone: Download,
   manifest: FileText,
   static: ScanSearch,
@@ -144,7 +148,7 @@ function NodeGlyph({
   // A stage lights when the payload reaches it, not when its beat opens. The
   // one exception is the first node, which nothing travels to.
   const ignite = landing && node.id !== "clone" ? BEAT_S : 0;
-  const Glyph = GLYPH[node.id];
+  const Glyph = STAGE_GLYPH[node.id];
   const weight = GLYPH_WEIGHT[node.id] ?? GLYPH_WEIGHT_DEFAULT;
   const c = tone(state, node);
   const live = state === "active" || state === "awaiting";
@@ -699,7 +703,7 @@ export function Graph() {
 export function GraphDescription() {
   const stages = useStore((s) => s.stages);
   return (
-    <ol className="sr-only">
+    <ol className="sr-only" aria-label="Audit stages">
       {stages.map((s) => (
         <li key={s.id}>
           {STAGE_LABEL[s.id]}: {s.state}

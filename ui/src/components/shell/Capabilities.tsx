@@ -26,12 +26,18 @@ function Readout({ label, ok, detail }: { label: string; ok: boolean; detail: st
       </span>
       <span className="sr-only">: {detail}</span>
       <span
-        role="tooltip"
+        // The sr-only span above already carries this text, so the visual
+        // tooltip is hidden from assistive tech rather than read out twice.
+        aria-hidden="true"
+        // Opens DOWNWARD. These readouts live in the sticky top bar, a dozen
+        // pixels from the top of the viewport, so a tooltip above them opened
+        // off the top of the screen and was unreadable.
+        //
         // Centred on its own readout, not flush left. Left-flush, the last
         // readout in the bar reached past the right edge — which widened the
         // document and dragged every `fixed inset-0` stage off screen on a
         // phone. Width is clamped to the viewport for the same reason.
-        className="pointer-events-none absolute bottom-[calc(100%+10px)] left-1/2 z-40 w-[min(26ch,calc(100vw-2rem))] -translate-x-1/2 origin-bottom scale-[0.96] rounded-md px-3 py-2.5 text-[11.5px] leading-[1.5] text-t2 opacity-0 transition-[opacity,transform] duration-150 ease-[var(--ease-out)] group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100"
+        className="pointer-events-none absolute top-[calc(100%+10px)] left-1/2 z-40 w-[min(26ch,calc(100vw-2rem))] -translate-x-1/2 origin-top scale-[0.96] rounded-md px-3 py-2.5 text-[11.5px] leading-[1.5] text-t2 opacity-0 transition-[opacity,transform] duration-150 ease-[var(--ease-out)] group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100"
         style={{ background: "var(--color-p2)", boxShadow: "0 0 0 1px var(--color-line-2)" }}
       >
         {detail}

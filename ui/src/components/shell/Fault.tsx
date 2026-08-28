@@ -58,7 +58,7 @@ export function Fault({ onRetry }: { onRetry: () => void }) {
           <button
             type="button"
             onClick={offline ? onRetry : clearError}
-            className="press label rounded-md px-3.5 py-2.5 transition-colors hover:text-t1"
+            className="press btn-ghost label"
             style={{ background: "var(--color-p2)" }}
           >
             {offline ? "reconnect" : "dismiss"}

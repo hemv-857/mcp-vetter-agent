@@ -42,7 +42,8 @@ outranks every aesthetic rule below it.
 No light theme. No toggle. The ground is a deep petrol graphite, not black, not
 neon cyber.
 
-- `--bg` `oklch(11.8% 0.008 236)` — the stage
+- `--bg` `oklch(11.8% 0.008 263)` — the stage (hue re-measured off the plasma
+  layer behind the app; the neutrals follow the atmosphere, the seven do not)
 - `--panel-1..3` — three raised surfaces, each +4% L
 - `--read` `oklch(78% 0.105 233)` — static channel, declared, structural
 - `--ran` `oklch(80% 0.125 172)` — dynamic channel, observed, proven
@@ -61,13 +62,15 @@ is not naming one of those seven things, it is grey.
    graph. Verdict: the verdict. Review: the authorize control. Everything else
    recedes in luminance.
 3. **No wall of cards.** Surfaces are earned: the input, the report preview, and
-   an expanded finding are contained. Lists, the graph, the stream, and metadata
-   are open — they sit directly on the stage.
+   the record's panels are contained. The graph, the verdict and its counts are
+   open — they sit directly on the stage.
 4. **Borders are meaningful.** No habitual `border-t` between sections. Grouping
    comes from spacing, alignment and luminance. A hairline means *this is a
    distinct surface* or *this is the channel seam*.
 5. **Left rail / open field.** Copy and controls hold a narrow measure on the
-   left; the visual system occupies the open field. Never a centered column.
+   left; the visual system occupies the open field. Never a centered *body* of
+   text. The landing is the one exception and an intentional one: its single
+   field is the only thing on that screen, so it sits on the axis of the stage.
 6. **Type**: Archivo (variable) for voice, Azeret Mono for anything machine-read —
    paths, rule IDs, counts, evidence. Mono is a semantic, not a texture.
 7. **Text is short.** `HUMAN REVIEW REQUIRED`, not a paragraph. Prose only where a
@@ -80,18 +83,34 @@ shadows. Surfaces get an inner top highlight (`inset 0 1px 0 rgb(255 255 255/.05
 and a hairline ring. Shadow is used once — under the target input — to make the
 one thing the user must touch feel physically present.
 
-## The landing anchor
+## The atmosphere
 
-A **containment lattice**: a slowly rotating polyhedral cage drawn in SVG with CSS
-3D, holding a small cluster of nodes (the declared tool surface) at its core, with
-a scan plane sweeping through it. It is *behind and around* the content at low
-opacity, reacts to pointer position through a spring, and never competes with the
-input.
+*Revised. The original entry here specified a hand-authored CSS-3D containment
+lattice and ruled out WebGL. The lattice was built and it read weak — a hairline
+cage at low opacity is invisible against a petrol ground. What shipped instead is
+recorded here, because a locked note that contradicts the product is worse than a
+revised one.*
 
-**Not Three.js.** A hand-authored lattice under `transform-style: preserve-3d` is
-more art-directable, costs zero bundle, and composites on the GPU. The brief warns
-against "look, we added Three.js" — a 600 KB generic icosphere is exactly that.
-Revisit only if the hand-built object reads weak.
+Two decorative layers, both under the content, neither taking a pointer event:
+
+- **A plasma field** — one WebGL fragment shader, one context for the session,
+  no scene graph and no generic icosphere. Its hue is *measured*, not chosen:
+  263, the median of the layer itself, so the chrome sits in the same light as
+  the ground rather than beside it. Its opacity is bought, not borrowed —
+  `--color-t4` is committed to 4.5:1 and the alpha is set at the point where t4
+  still holds that at the brightest pixel on screen.
+- **Ribbons of light along the pointer** — in the console's own channel hues,
+  never the reference's magenta and gold, because in a system where seven hues
+  carry meaning a red across the background of a security tool says something
+  untrue. `mix-blend-mode: screen`, so the layer can only add light.
+
+Full strength on the landing, where it is the only thing moving; pulled back once
+the instrument is on screen, because the graph draws in the same blues and must
+win. Under `prefers-reduced-motion` neither layer is dimmed — neither is
+downloaded.
+
+The rule the original note was really making still stands: **no ornament may
+compete with the instrument, and none may cost the palette its meaning.**
 
 ## Motion
 

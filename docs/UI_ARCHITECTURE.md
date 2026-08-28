@@ -1,5 +1,9 @@
 # UI Architecture — MCP Vetting Agent
 
+> **Superseded.** This is the pre-build plan, kept for the record. The console
+> that shipped is a different shape — see [`ui/README.md`](../ui/README.md) for what it
+> actually is. Where the two disagree, the code and `ui/README.md` are right.
+
 ## System Overview
 
 ```

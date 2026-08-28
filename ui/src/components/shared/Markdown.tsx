@@ -1,4 +1,17 @@
 import type { ReactNode } from "react";
+import { SEVERITY_COLOR } from "./tokens";
+
+/**
+ * The report's one table is the severity breakdown, and rendered flat it said
+ * CRITICAL and LOW in exactly the same grey — the row that matters most looked
+ * like the row that matters least. A row whose first cell names a severity
+ * takes that severity's hue, so the longest wavelength on the surface sits on
+ * the count you must not miss. Any other table renders unchanged.
+ */
+function severityOf(cell: string | undefined): string | null {
+  const key = (cell ?? "").trim().toUpperCase();
+  return key in SEVERITY_COLOR ? SEVERITY_COLOR[key as keyof typeof SEVERITY_COLOR] : null;
+}
 
 /**
  * A deliberately small renderer for the subset of Markdown this product
@@ -31,7 +44,8 @@ function inline(text: string, keyBase: string): ReactNode[] {
       nodes.push(
         <code
           key={`${keyBase}-c${index}`}
-          className="px-1 py-[1px] font-mono text-[0.92em]" style={{ background: "var(--color-p2)", color: "var(--color-t1)" }}
+          className="px-1 py-[1px] font-mono text-[0.92em]"
+          style={{ background: "var(--color-p2)", color: "var(--color-t1)" }}
         >
           {token.slice(1, -1)}
         </code>,
@@ -64,7 +78,8 @@ export function Markdown({ source }: { source: string }) {
       blocks.push(
         <pre
           key={`code-${index}`}
-          className="my-3 overflow-x-auto px-3 py-2.5 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--color-p2)", color: "var(--color-t2)" }}
+          className="my-3 overflow-x-auto px-3 py-2.5 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap"
+          style={{ background: "var(--color-p2)", color: "var(--color-t2)" }}
         >
           {body.join("\n")}
         </pre>,
@@ -75,7 +90,10 @@ export function Markdown({ source }: { source: string }) {
     // table
     if (line.startsWith("|") && (lines[index + 1] ?? "").startsWith("|")) {
       const cells = (row: string) =>
-        row.split("|").slice(1, -1).map((cell) => cell.trim());
+        row
+          .split("|")
+          .slice(1, -1)
+          .map((cell) => cell.trim());
       const head = cells(line);
       index += 2; // skip the delimiter row
       const rows: string[][] = [];
@@ -85,13 +103,25 @@ export function Markdown({ source }: { source: string }) {
       }
       blocks.push(
         <div key={`table-${index}`} className="my-3 overflow-x-auto">
-          <table className="w-full text-left text-[12px]">
+          <table
+            className="w-full overflow-hidden rounded-lg text-left text-[12px]"
+            style={{ boxShadow: "0 0 0 1px var(--color-line)" }}
+          >
             <thead>
               <tr>
                 {head.map((cell, i) => (
                   <th
                     key={i}
-                    className="pb-1.5 font-mono text-[10px] font-medium tracking-[0.1em] uppercase" style={{ borderBottom: "1px solid var(--color-line)", color: "var(--color-t4)" }}
+                    // Was --color-t4 over a hairline: the dimmest token in the
+                    // system labelling the densest thing in the report. The
+                    // header now sits on its own ground with a real rule under
+                    // it, so the columns are findable before they are read.
+                    className="px-2.5 py-2 font-mono text-[10px] font-medium tracking-[0.1em] uppercase first:pl-3"
+                    style={{
+                      borderBottom: "1px solid var(--color-line-2)",
+                      background: "oklch(0% 0 0 / 0.28)",
+                      color: "var(--color-t3)",
+                    }}
                   >
                     {cell}
                   </th>
@@ -100,9 +130,30 @@ export function Markdown({ source }: { source: string }) {
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i}>
+                <tr
+                  key={i}
+                  style={
+                    severityOf(row[0])
+                      ? {
+                          background: `color-mix(in oklch, ${severityOf(row[0])} 7%, transparent)`,
+                        }
+                      : undefined
+                  }
+                >
                   {row.map((cell, j) => (
-                    <td key={j} className="py-1.5 font-mono" style={{ borderBottom: "1px solid var(--color-line)", color: "var(--color-t2)", fontVariantNumeric: "tabular-nums" }}>
+                    <td
+                      key={j}
+                      // Tabular numerals and a vertical rule between columns:
+                      // a count column that does not line up is a count column
+                      // nobody checks.
+                      className="px-2.5 py-2 font-mono first:pl-3 not-first:border-l"
+                      style={{
+                        borderBottom: "1px solid var(--color-line)",
+                        borderLeftColor: "var(--color-line)",
+                        color: severityOf(row[0]) ?? "var(--color-t2)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {cell}
                     </td>
                   ))}
@@ -117,7 +168,10 @@ export function Markdown({ source }: { source: string }) {
 
     if (line.startsWith("### ")) {
       blocks.push(
-        <h4 key={index} className="mt-5 mb-1.5 font-mono text-[12px] font-medium tracking-[0.02em] text-t1">
+        <h4
+          key={index}
+          className="mt-5 mb-1.5 font-mono text-[12px] font-medium tracking-[0.02em] text-t1"
+        >
           {inline(line.slice(4), `h4-${index}`)}
         </h4>,
       );
@@ -131,7 +185,8 @@ export function Markdown({ source }: { source: string }) {
       blocks.push(
         <blockquote
           key={index}
-          className="my-3 pl-3 text-[12px] leading-relaxed" style={{ borderLeft: "1px solid var(--color-line-2)", color: "var(--color-t3)" }}
+          className="my-3 pl-3 text-[12px] leading-relaxed"
+          style={{ borderLeft: "1px solid var(--color-line-2)", color: "var(--color-t3)" }}
         >
           {inline(line.slice(2), `q-${index}`)}
         </blockquote>,

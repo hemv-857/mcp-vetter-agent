@@ -74,7 +74,7 @@ export async function runAudit(rawTarget: string): Promise<void> {
   // --------------------------------------------------------------- manifest
   setStage("manifest", { state: "active", startedAt: Date.now() });
   try {
-    const result = await callTool<{ manifests: Record<string, string>; skipped: string[] }>(
+    const result = await callTool<{ manifests: Record<string, string> }>(
       "read_target_manifest",
       { target_dir: targetPath },
     );
@@ -84,9 +84,7 @@ export async function runAudit(rawTarget: string): Promise<void> {
     }));
     useStore.getState().setManifests(manifests);
     setStage("manifest", { state: "done", endedAt: Date.now(), note: `${manifests.length} files` });
-    if (result.skipped?.length) {
-    }
-  } catch (error) {
+  } catch {
     // Manifest reading is context, not a gate — the scans can still run.
     setStage("manifest", { state: "failed", endedAt: Date.now() });
   }
@@ -111,7 +109,7 @@ export async function runAudit(rawTarget: string): Promise<void> {
         note: `${findings.length} candidates`,
       });
       return findings;
-    } catch (error) {
+    } catch {
       setStage("static", { state: "failed", endedAt: Date.now() });
       return [];
     }

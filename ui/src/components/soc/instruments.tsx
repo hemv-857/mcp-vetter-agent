@@ -2,22 +2,8 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { Finding, Severity } from "../../types";
 import { EASE_OUT, SEVERITY_COLOR } from "../shared/tokens";
-import { cn, useEntrance, usePrefersReducedMotion } from "../../lib/util";
+import { cn, useMotionOk } from "../../lib/util";
 import { useValuesReady } from "../../lib/reveal";
-
-/* ---------------------------------------------------------------------------
-   Shared motion primitives
-   ------------------------------------------------------------------------ */
-
-/**
- * Animate only when motion is welcome *and* the page can actually paint. A tab
- * that mounts in the background gets no animation frames, so a mount animation
- * would leave the gauge at zero and the bars flat — the console would render
- * empty. Both conditions collapse into one answer everything here reads.
- */
-export function useMotionOk(): boolean {
-  return useEntrance() && !usePrefersReducedMotion();
-}
 
 /**
  * Counts a real number up to its real value. Never used to imply progress that
@@ -198,11 +184,14 @@ export function SeverityBars({ findings }: { findings: Finding[] }) {
   const peak = Math.max(1, ...rows.map((r) => r.total));
 
   if (findings.length === 0) {
-    return <p className="px-5 py-6 text-[12.5px] text-t4">No findings to distribute yet.</p>;
+    return <p className="px-5 py-6 text-[12.5px] text-t4">No findings to distribute.</p>;
   }
 
   return (
-    <div className="px-5 pt-1 pb-1">
+    /* Capped, not fluid. In the sidebar the panel is 360px and this never
+       binds; stacked full-width on a tablet, four bars spread across 770px
+       read as a stretched graphic rather than a distribution. */
+    <div className="max-w-[420px] px-5 pt-1 pb-1">
       <div className="flex h-[104px] items-end gap-3">
         {rows.map((row, i) => {
           const colour = SEVERITY_COLOR[row.severity];
