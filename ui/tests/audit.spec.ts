@@ -38,9 +38,13 @@ test("an audit reaches a verdict and stops at the human boundary", async ({ page
   // person actually presses; a keyboard reader focuses the input and hits Space.
   await page.getByText("I have read this report", { exact: false }).click();
   await expect(page.getByRole("checkbox")).toBeChecked();
-  // A local path has no repository to file against, so the gate stays shut for
-  // a stated reason rather than opening onto nothing.
-  await expect(page.getByText("No repository to file against.", { exact: false })).toBeVisible();
+  // The gate stays shut for a stated reason rather than opening onto nothing.
+  // Which reason fires depends on the host: a replayed fixture report is a more
+  // fundamental blocker than an unfilable path, so it is the one named first.
+  await expect(authorize).toBeDisabled();
+  await expect(
+    page.getByText(/A replayed sample report|No repository to file against\./),
+  ).toBeVisible();
 });
 
 test("declining is an outcome, not a dead end", async ({ page }) => {
