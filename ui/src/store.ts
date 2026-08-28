@@ -100,6 +100,14 @@ interface AuditState {
   filedIssue: FiledIssue | null;
   approvalAcknowledged: boolean;
 
+  // approval gate (TrueForge human-in-the-loop)
+  pendingApproval: {
+    toolCallId: string;
+    threadId: string;
+    toolName: string;
+    toolArgs: Record<string, unknown>;
+  } | null;
+
   error: string | null;
   errorTitle: string | null;
 
@@ -118,6 +126,7 @@ interface AuditState {
   updateDraft: (patch: Partial<Pick<DraftIssue, "title" | "body">>) => void;
   setAcknowledged: (value: boolean) => void;
   setFiled: (filed: FiledIssue) => void;
+  setPendingApproval: (approval: AuditState["pendingApproval"]) => void;
   fail: (message: string) => void;
   failFiling: (message: string) => void;
   clearError: () => void;
@@ -146,6 +155,8 @@ export const useStore = create<AuditState>()((set, get) => ({
   draftIssue: null,
   filedIssue: null,
   approvalAcknowledged: false,
+
+  pendingApproval: null,
 
   error: null,
   errorTitle: null,
@@ -185,6 +196,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       draftIssue: null,
       filedIssue: null,
       approvalAcknowledged: false,
+      pendingApproval: null,
       error: null,
       errorTitle: null,
     }),
@@ -206,6 +218,7 @@ export const useStore = create<AuditState>()((set, get) => ({
 
   setAcknowledged: (approvalAcknowledged) => set({ approvalAcknowledged }),
   setFiled: (filedIssue) => set({ filedIssue, phase: "filed" }),
+  setPendingApproval: (pendingApproval) => set({ pendingApproval }),
 
   /**
    * Filing failed, but the operator is still standing at the gate: keep the
@@ -247,6 +260,7 @@ export const useStore = create<AuditState>()((set, get) => ({
       draftIssue: null,
       filedIssue: null,
       approvalAcknowledged: false,
+      pendingApproval: null,
       error: null,
       errorTitle: null,
     }),

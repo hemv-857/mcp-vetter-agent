@@ -145,8 +145,7 @@ async def _run_scan(
     if dev_fixtures_enabled():
         return _sample_report(str(target), scan_type)
 
-    # NOTE: process-group kill handles scanner children; Docker containers
-    # launched by dynamic probes are the scanner's own cleanup responsibility.
+    # Try external scanner first; fall back to inline scanner if not installed.
     try:
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -161,8 +160,9 @@ async def _run_scan(
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
         )
-    except OSError as error:
-        return {"error": f"failed to launch scanner: {error}"}
+    except OSError:
+        from probe_server.inline_scanner import scan as inline_scan
+        return await asyncio.to_thread(inline_scan, str(target))
 
     async def _reap() -> None:
         with suppress(ProcessLookupError):
@@ -178,6 +178,12 @@ async def _run_scan(
             "timeout": True,
             "timed_out_after_seconds": timeout,
         }
+
+    # If scanner failed to launch or module not found, fall back to inline.
+    stderr_text = stderr.decode(errors="replace")
+    if proc.returncode != 0 and ("No module named" in stderr_text or proc.returncode == 1):
+        from probe_server.inline_scanner import scan as inline_scan
+        return await asyncio.to_thread(inline_scan, str(target))
 
     if proc.returncode not in _REPORT_EXIT_CODES:
         return {

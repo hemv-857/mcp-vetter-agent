@@ -11,6 +11,7 @@ import { TubesCursor } from "../shell/TubesCursor";
 import { Review } from "../review/Review";
 import { Outcome } from "../review/Outcome";
 import { Filed } from "../review/Filed";
+import { ApprovalGate } from "../shared/ApprovalGate";
 import { ConfidenceMark, Mark, SeverityTag } from "../shared/Primitives";
 import { CHANNEL_COLOR, EASE_OUT } from "../shared/tokens";
 import { ProofGauge, SeverityBars, useCountUp } from "./instruments";
@@ -1142,6 +1143,7 @@ export function Dashboard() {
 
   return (
     <div className="relative min-h-[100svh] bg-bg">
+      <ApprovalGate />
       <BackgroundField />
       {/* z-1: above the plasma at z-0, below the content at z-10 — exactly the
           slot asked for. pointer-events-none is not optional: the library binds

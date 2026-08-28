@@ -1,4 +1,5 @@
-import { ToolError, callTool } from "./mcp";
+import { callTool, ToolError } from "./mcp";
+import { checkTrueForgeHealth } from "./trueforge";
 import { buildDraft } from "./draft";
 import { findingsFromReport, mergeFindings, summarize, verdictOf, warrantsReport } from "./report";
 import { STAGE_BUDGET, useStore } from "../store";
@@ -11,7 +12,7 @@ function isLocalPath(target: string): boolean {
 export function validateTarget(target: string): string | null {
   const value = target.trim();
   if (!value) return "Enter a repository URL.";
-  if (isLocalPath(value)) return null; // the probe server accepts local paths too
+  if (isLocalPath(value)) return null;
   let url: URL;
   try {
     url = new URL(value);
@@ -30,8 +31,8 @@ const message = (error: unknown): string =>
 /**
  * clone → manifest → (static ‖ dynamic) → synthesis → human review.
  *
- * Every stage transition below is driven by a real tool result. Nothing is
- * simulated, and no timer stands in for work.
+ * Tools are called directly on the probe server via MCP.
+ * TrueForge manages the session and provides the approval gate for irreversible actions.
  */
 export async function runAudit(rawTarget: string): Promise<void> {
   const store = useStore.getState();
@@ -41,16 +42,21 @@ export async function runAudit(rawTarget: string): Promise<void> {
   store.beginScan(target);
   if (!local) store.rememberUrl(target);
 
-  // Reflect the audited target in the URL so a run can be linked to. Prefill
-  // only — arriving at such a link never starts a scan on its own.
   try {
     const url = new URL(window.location.href);
     url.searchParams.set("target", target);
     window.history.replaceState(null, "", url);
   } catch {
-    /* history is unavailable in some embedded contexts */
+    /* history unavailable in embedded contexts */
   }
   const { setStage, fail } = useStore.getState();
+
+  // Verify TrueForge is reachable (session management + approval gate)
+  const healthy = await checkTrueForgeHealth();
+  if (!healthy) {
+    fail("TrueForge is not reachable. Start TrueForge for session tracking and approval gates.");
+    return;
+  }
 
   // ---------------------------------------------------------------- acquire
   let targetPath: string;
@@ -159,15 +165,11 @@ export async function runAudit(rawTarget: string): Promise<void> {
   const summary = summarize(findings);
   let verdict = verdictOf(summary);
 
-  // A CLEAN verdict is misleading when no dynamic probe actually ran — only
-  // static analysis was performed. Surface that as DEGRADED so the operator
-  // knows the absence of findings may just mean the sandbox was unavailable.
   if (verdict === "CLEAN" && (dynamicState === "skipped" || dynamicState === "failed")) {
     verdict = "DEGRADED";
   }
 
   useStore.getState().setResults(findings, summary, verdict);
-
   setStage("synthesis", { state: "done", endedAt: Date.now(), note: verdict });
 
   // ---------------------------------------------------------- human review
