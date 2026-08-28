@@ -3,19 +3,21 @@ import type { Confidence, Finding, Severity, Summary, Verdict } from "../types";
 /**
  * Rule catalogue from docs/API_REFERENCE.md. Used only to fill gaps: whatever
  * the scanner reports for a finding always wins over this table.
+ *
+ * OWASP mappings follow the Agentic Top 10 (2025) for AI agent security.
  */
 const RULES: Record<string, { title: string; severity: Severity; owasp: string }> = {
-  "VULN-001": { title: "Unsafe execution in tool handler", severity: "HIGH", owasp: "A3: Injection" },
-  "VULN-002": { title: "Hardcoded credentials", severity: "HIGH", owasp: "A2: Cryptographic Failures" },
-  "VULN-003": { title: "Missing input validation", severity: "MEDIUM", owasp: "A6: Vulnerable Components" },
-  "VULN-004": { title: "Unrestricted file access", severity: "HIGH", owasp: "A1: Broken Access Control" },
-  "VULN-005": { title: "Excessive permissions", severity: "MEDIUM", owasp: "A5: Security Misconfiguration" },
-  "VULN-006": { title: "Insecure prompt construction", severity: "MEDIUM", owasp: "A3: Injection" },
-  "VULN-007": { title: "Missing authentication", severity: "HIGH", owasp: "A7: Auth Failures" },
-  "VULN-008": { title: "Out-of-scope execution", severity: "CRITICAL", owasp: "A7: Breakout" },
-  "VULN-009": { title: "Oversized arguments", severity: "MEDIUM", owasp: "A4: Insecure Design" },
-  "VULN-010": { title: "Injection payloads", severity: "HIGH", owasp: "A3: Injection" },
-  "VULN-011": { title: "Malformed schema input", severity: "MEDIUM", owasp: "A4: Insecure Design" },
+  "VULN-001": { title: "Unsafe execution in tool handler", severity: "HIGH", owasp: "A01: Excessive Agency" },
+  "VULN-002": { title: "Hardcoded credentials", severity: "HIGH", owasp: "A06: Insecure Tool Chain" },
+  "VULN-003": { title: "Missing input validation", severity: "MEDIUM", owasp: "A03: Insecure Tool Schemas" },
+  "VULN-004": { title: "Unrestricted file access", severity: "HIGH", owasp: "A01: Excessive Agency" },
+  "VULN-005": { title: "Excessive permissions", severity: "MEDIUM", owasp: "A01: Excessive Agency" },
+  "VULN-006": { title: "Insecure prompt construction", severity: "MEDIUM", owasp: "A05: Insecure Output Handling" },
+  "VULN-007": { title: "Missing authentication", severity: "HIGH", owasp: "A08: Unauthorized Resource Access" },
+  "VULN-008": { title: "Out-of-scope execution", severity: "CRITICAL", owasp: "A02: Insecure Agent Environment" },
+  "VULN-009": { title: "Oversized arguments", severity: "MEDIUM", owasp: "A03: Insecure Tool Schemas" },
+  "VULN-010": { title: "Injection payloads", severity: "HIGH", owasp: "A05: Insecure Output Handling" },
+  "VULN-011": { title: "Malformed schema input", severity: "MEDIUM", owasp: "A03: Insecure Tool Schemas" },
 };
 
 /** Rules 008-011 are the Docker-sandboxed probes. */
