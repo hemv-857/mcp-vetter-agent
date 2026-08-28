@@ -21,6 +21,29 @@ User: "audit https://github.com/someone/some-mcp-server"
 - **Approval gate is native TrueForge HITL**: issue creation is a write/destructive action, so the harness pauses for Allow/Deny.
 - **Sessions survive reconnects**: refresh mid-audit; the agent keeps working.
 
+## What the agent does
+
+The MCP Vetting Agent audits third-party MCP servers for security vulnerabilities before anyone connects them to an AI agent. It answers one question: "Is this server safe to trust?"
+
+Given a GitHub URL, the agent clones the repository, reads its declared tools and permissions, then runs two parallel security scans — static analysis (pattern matching for known vulnerability classes) and dynamic analysis (executing the server in isolated Docker containers to observe real behaviour). Findings are mapped to the OWASP Agentic Top 10 and synthesised into a risk verdict: HIGH, MEDIUM, LOW, or CLEAN.
+
+If the verdict is HIGH, the agent drafts a GitHub security issue with per-finding details and remediation hints, then pauses and waits for human approval before filing anything. Nothing irreversible happens without a person saying yes.
+
+## How it uses TrueForge
+
+TrueForge is the agent harness — the runtime layer between the model and the tools it calls. Every part of the audit runs through TrueForge:
+
+| TrueForge feature | How we use it |
+| --- | --- |
+| **MCP tool connectivity** | The probe server registers as an MCP connector. TrueForge calls `clone_target`, `read_target_manifest`, `static_audit`, `full_audit`, and `file_github_issue` through the harness — not through a wrapper. |
+| **Approval gate (HITL)** | `file_github_issue` is annotated `@write`. TrueForge pauses the agent and presents Allow/Deny before the tool executes. The human approves or declines; the agent respects the decision. |
+| **Sandbox** | Dynamic probes execute the target MCP server inside throwaway Docker containers. The sandbox is configured in TrueForge's agent manifest (`sandbox.enabled: true`). |
+| **Subagents** | Static and dynamic audits run in parallel as delegated subagent tasks, keeping the main agent context clean. |
+| **Session persistence** | The audit session survives browser refreshes and reconnects. If the connection drops mid-audit, the agent continues and the UI reattaches to the running session. |
+| **Model flexibility** | Runs on a local Ollama model (`qwen2.5:7b`) — no API key required, no data leaves the machine. |
+
+The harness is doing the real work: reaching tools, running code safely, and stopping for a person before anything irreversible.
+
 ## Quick start
 
 ```bash
@@ -109,6 +132,10 @@ The PR history shows each review, the commits addressing its findings, and follo
 ## Demo
 
 <!-- TODO(day 5): 3-minute video link -->
+
+## AI tooling disclosure
+
+This project was built with the assistance of AI coding assistants (Claude Code, Cursor). All AI-generated code was reviewed, tested, and understood by the contributors before merging.
 
 ## Credits
 
