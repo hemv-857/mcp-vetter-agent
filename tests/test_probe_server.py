@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 
 from conftest import requires_scanner
+
 from probe_server.server import (
     _looks_like_the_vulnerable_fixture,
     _run_scan,

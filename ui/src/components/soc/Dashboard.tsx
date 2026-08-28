@@ -259,6 +259,12 @@ const VERDICT_COPY: Record<
     colour: "var(--color-ran)",
     glow: "var(--color-read)",
   },
+  DEGRADED: {
+    word: "Degraded",
+    line: "Only the source was read. No probe ran, so a clean result proves nothing.",
+    colour: "var(--color-medium)",
+    glow: "var(--color-read)",
+  },
 };
 
 const PHASE_LINE: Record<string, string> = {
@@ -708,14 +714,16 @@ function VerdictSection({
             <Values className="mt-11 flex flex-wrap items-center gap-3">
               {/* Goes to the report already on this page, not to a second copy
                   of it. Everything the audit saw, then the gate below it. */}
-              {stopped ? null : (
+              {stopped || phase === "filing" ? null : (
                 <Action tone="loud" icon="file" onClick={onViewReport}>
                   View the full report
                 </Action>
               )}
-              <Action tone={stopped ? "loud" : "quiet"} icon="refresh" onClick={onNewAudit}>
-                New audit
-              </Action>
+              {phase === "filing" ? null : (
+                <Action tone={stopped ? "loud" : "quiet"} icon="refresh" onClick={onNewAudit}>
+                  New audit
+                </Action>
+              )}
               {elapsed ? (
                 <span className="num ml-1 text-[11.5px] text-t4">
                   {elapsed} · {phase.replace(/_/g, " ")}

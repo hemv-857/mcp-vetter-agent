@@ -144,6 +144,7 @@ export async function runAudit(rawTarget: string): Promise<void> {
   const [staticFindings, dynamicFindings] = await Promise.all([staticLane, dynamicLane]);
 
   const staticState = useStore.getState().stages.find((s) => s.id === "static")?.state;
+  const dynamicState = useStore.getState().stages.find((s) => s.id === "dynamic")?.state;
   if (staticState === "failed" && dynamicFindings.length === 0) {
     fail("The scan engine returned no usable report. Nothing could be analysed.");
     return;
@@ -156,7 +157,15 @@ export async function runAudit(rawTarget: string): Promise<void> {
 
   const findings = mergeFindings(staticFindings, dynamicFindings);
   const summary = summarize(findings);
-  const verdict = verdictOf(summary);
+  let verdict = verdictOf(summary);
+
+  // A CLEAN verdict is misleading when no dynamic probe actually ran — only
+  // static analysis was performed. Surface that as DEGRADED so the operator
+  // knows the absence of findings may just mean the sandbox was unavailable.
+  if (verdict === "CLEAN" && (dynamicState === "skipped" || dynamicState === "failed")) {
+    verdict = "DEGRADED";
+  }
+
   useStore.getState().setResults(findings, summary, verdict);
 
   setStage("synthesis", { state: "done", endedAt: Date.now(), note: verdict });

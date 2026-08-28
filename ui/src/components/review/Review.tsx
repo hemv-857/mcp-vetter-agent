@@ -165,18 +165,20 @@ export function Review() {
   const filing = phase === "filing";
   const tokenReady = health?.githubConfigured !== false;
   const filable = /^https:\/\/(www\.)?github\.com\//i.test(draft.repoUrl);
-  const blocked = !acknowledged || filing || !tokenReady || !filable;
+  const blocked = !acknowledged || filing || !tokenReady || !filable || sampleData;
   // A disabled control that says nothing reads as broken. Name the first thing
   // standing in the way, in the order the operator can act on it.
   const blockReason = filing
     ? null
-    : !filable
-      ? "No repository to file against. Investigate a GitHub URL to enable filing."
-      : !tokenReady
-        ? "The probe server has no GITHUB_TOKEN, so nothing can be filed."
-        : !acknowledged
-          ? "Tick the box above first."
-          : null;
+    : sampleData
+      ? "A replayed sample report, not a live scan, so nothing can be filed."
+      : !filable
+        ? "No repository to file against. Investigate a GitHub URL to enable filing."
+        : !tokenReady
+          ? "The probe server has no GITHUB_TOKEN, so nothing can be filed."
+          : !acknowledged
+            ? "Tick the box above first."
+            : null;
   const reported = findings.filter((f) => f.severity === "CRITICAL" || f.severity === "HIGH");
 
   return (

@@ -85,42 +85,18 @@ The original design below predates verification. Corrections that supersede anyt
 ## Core Components
 
 ### 1. **Main Agent (TrueForge)**
-**Language:** Python or TypeScript (TrueForge-compatible)
+**Spec:** `deploy/agent-manifest.json` — a declarative TrueForge agent spec.
 
-**Responsibilities:**
-- Accept target MCP server GitHub URL
-- Clone & analyze repo (GitHub MCP)
-- Spawn 3 subagents in parallel (static + 2 dynamic probes)
-- Collect all findings
-- Synthesize verdict with risk level
-- Draft GitHub security issue
-- **Pause and wait for human approval** before filing
-- File issue on approval
+**Responsibilities (encoded in instructions, not code):**
+- Accept target MCP server GitHub URL or local path
+- Clone via `clone_target`, read manifests via `read_target_manifest`
+- Spawn subagents for `static_audit` and `full_audit` in parallel
+- Collect all findings, synthesize verdict with risk level
+- Draft GitHub security issue, **pause for human approval**
+- File issue via `file_github_issue` on approval (the only write action)
 
-**Key methods:**
-```python
-class MCPVetterAgent:
-    async def audit(self, target_repo_url: str) -> Verdict:
-        # Main entry point
-        
-    async def analyze_repo(self, repo_url: str) -> RepoAnalysis:
-        # Clone via GitHub MCP, extract schema + metadata
-        
-    async def run_probes(self, repo_analysis: RepoAnalysis) -> List[ProbeResult]:
-        # Spawn subagents, collect results
-        
-    async def synthesize_findings(self, findings: List[ProbeResult]) -> Verdict:
-        # Reason through findings, assign risk level
-        
-    async def draft_issue(self, verdict: Verdict) -> GitHubIssue:
-        # Create security issue (not filed yet)
-        
-    async def wait_for_approval(self, issue: GitHubIssue) -> bool:
-        # ⏸️  Pause here, poll for human yes/no
-        
-    async def file_issue(self, issue: GitHubIssue) -> Result:
-        # File on target MCP's repo (via GitHub MCP)
-```
+**Key difference:** The agent is a TrueForge spec, not a Python class. The harness
+runs the loop; the probe server provides the tools. No custom orchestration code.
 
 ---
 
@@ -193,74 +169,21 @@ Scope findings:
 
 ### 5. **MCP Tools**
 
-#### **GitHub MCP** (read + write)
-**Connections:**
-- GitHub API (repo operations, issue creation)
+All tools live on the probe server (`probe_server/server.py`) and are called by the
+TrueForge agent over MCP streamable-HTTP.
 
-**Methods:**
-```
-GET /repos/{owner}/{repo}
-GET /repos/{owner}/{repo}/contents/{path}
-POST /repos/{owner}/{repo}/issues
-```
+| Tool | Read/Write | What it does |
+|------|-----------|--------------|
+| `clone_target` | write (temp dirs) | Shallow-clones a GitHub URL onto the probe host |
+| `read_target_manifest` | read-only | Returns declared YAML manifests from the target |
+| `static_audit` | read-only | AST rules + pattern matching (VULN-001..007) |
+| `full_audit` | read-only | Static + Docker-sandboxed dynamic probes (VULN-008..011) |
+| `file_github_issue` | **write** | Files a security issue on GitHub (requires `GITHUB_TOKEN`) |
 
-**Wrapper in TrueForge:**
-```python
-class GitHubMCP:
-    async def clone_repo(self, url: str) -> RepoPath:
-        # Clone to temp directory, return path
-        
-    async def read_file(self, repo: str, path: str) -> str:
-        # Read single file (schema, manifest, etc.)
-        
-    async def read_all_schemas(self, repo_path: str) -> Dict[str, Schema]:
-        # Find and parse all tool schemas
-        
-    async def create_issue(self, repo: str, title: str, body: str, labels: List[str]) -> IssueURL:
-        # File security issue (irreversible)
-```
-
----
-
-#### **Static Analysis Tool**
-**Input:** Target MCP repo path  
-**Output:** List of rule violations with severity
-
-```python
-class StaticAnalysisTool:
-    async def audit_static(self, repo_path: str) -> List[Finding]:
-        # Read schemas, apply security rules
-        # Return: violations + OWASP categories
-```
-
----
-
-#### **Injection Probe Tool**
-**Input:** Target MCP server executable path + schemas  
-**Output:** Injection vulnerabilities + POCs
-
-```python
-class InjectionProbeTool:
-    async def test_injection(self, repo_path: str) -> List[Vulnerability]:
-        # Start target MCP in sandbox
-        # Send injection payloads through tool args
-        # Check if injection succeeds
-        # Return: vulnerable payloads + stack traces
-```
-
----
-
-#### **Scope Escape Probe Tool**
-**Input:** Target MCP server executable path  
-**Output:** Scope breakout vulnerabilities
-
-```python
-class ScopeEscapeProbeTool:
-    async def test_scope_escape(self, repo_path: str) -> List[Vulnerability]:
-        # Start target MCP in isolated sandbox
-        # Attempt breakout techniques (env read, file escape, network)
-        # Report what succeeded
-```
+`file_github_issue` is the only tool that leaves the probe host. It reads
+`GITHUB_TOKEN` from the server's environment — the browser never handles a
+credential. TrueForge's native approval gate pauses on this tool because it
+is annotated `destructiveHint: true`.
 
 ---
 
@@ -275,57 +198,15 @@ Agent runs all probes in isolated sandbox:
 ---
 
 ### 7. **Approval Gate**
-**Workflow:**
-1. Agent audits server: "Found 3 HIGH findings"
-2. Agent drafts GitHub issue:
-   ```
-   Title: Security audit findings: {tool_name}
-   
-   ## Vulnerabilities Detected
-   
-   - **HIGH:** SQL Injection in path argument
-     Proof: SELECT * WHERE id='{PAYLOAD}' OR '1'='1'
-   
-   - **HIGH:** Overpermissioned file access
-     Tool can read any file system path
-   
-   - **MEDIUM:** Missing input validation
-     Arguments not sanitized before use
-   
-   Recommendations:
-   - Validate all path arguments
-   - Use parameterized queries
-   - Restrict file access scope
-   ```
+**Implementation:** TrueForge native HITL (no custom code).
 
-3. Agent pauses: "Ready to file this issue on the maintainer's repo? (yes/no)"
-4. Human reviews draft, sees GitHub URL where it will appear
-5. Human clicks "yes"
-6. Agent calls GitHub MCP to file issue (irreversible, public)
-7. Issue now visible on maintainer's repo
+When the agent calls `file_github_issue` (annotated `destructiveHint: true`),
+TrueForge automatically pauses with Allow/Deny buttons in the chat UI. The
+agent presents the draft issue before calling the tool, and files only on
+explicit human approval.
 
-**Implementation:**
-```python
-async def wait_for_approval(self, issue_draft: GitHubIssue) -> bool:
-    # Poll TrueForge session for user input
-    while True:
-        await asyncio.sleep(1)
-        response = await trueforge.get_user_input(
-            prompt=f"""
-Approve filing this issue on {issue_draft.target_repo}?
-(This is irreversible and will be public)
-
-Title: {issue_draft.title}
-Labels: {issue_draft.labels}
-
-Yes/No:
-            """
-        )
-        if response.lower() == "yes":
-            return True
-        elif response.lower() == "no":
-            return False
-```
+The `require_approval_for_tools` field in the agent spec can override the
+default per-tool. No custom polling loop is needed.
 
 ---
 
