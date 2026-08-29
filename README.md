@@ -129,6 +129,17 @@ Every substantive change in this repository went through a pull request reviewed
 
 The PR history shows each review, the commits addressing its findings, and follow-up reviews confirming resolution against the final code.
 
+## Live Demo
+
+1. **Visit console:** https://ui-blond-six.vercel.app/
+2. **Enter repo:** `https://github.com/hemv-857/mcp-vetter-fixture-target`
+3. **Watch probes run:** Findings appear in real-time
+4. **Review findings:** Critical vulnerabilities detected (eval, SQL injection, path traversal)
+5. **Click Allow:** Issue files to the fixture repo
+6. **Verify:** See the filed issue at https://github.com/hemv-857/mcp-vetter-fixture-target/issues
+
+**This is a real audit of a real repo, not mocked data.**
+
 ## Demo
 
 <!-- TODO(day 5): 3-minute video link -->
