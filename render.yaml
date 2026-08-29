@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: mcp-vetting-probe
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn probe_server.server:mcp_app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: VETTING_ALLOWED_ORIGINS
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
