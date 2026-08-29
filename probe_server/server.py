@@ -100,7 +100,7 @@ def _sample_report(target: str, scan_type: str) -> dict[str, Any]:
     report["target"] = target
     return report
 
-mcp = FastMCP("mcp-vetting")
+mcp = FastMCP("mcp-vetting", host="0.0.0.0", port=8000)
 
 
 async def _docker_available() -> bool:
