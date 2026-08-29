@@ -16,13 +16,13 @@ function Readout({ label, ok, detail }: { label: string; ok: boolean; detail: st
         aria-hidden="true"
         className="block h-[5px] w-[5px] shrink-0 rounded-full"
         style={{
-          background: ok ? "var(--color-ran)" : "var(--color-high)",
-          boxShadow: ok ? "0 0 7px var(--color-ran)" : "0 0 7px var(--color-high)",
+          background: ok ? "var(--color-ran)" : "var(--color-t3)",
+          boxShadow: ok ? "0 0 7px var(--color-ran)" : "0 0 7px var(--color-t3)",
         }}
       />
       <span className="label" style={{ color: ok ? "var(--color-t4)" : "var(--color-t3)" }}>
         {label}
-        {ok ? "" : " off"}
+        {ok ? "" : ": cloud"}
       </span>
       <span className="sr-only">: {detail}</span>
       <span
@@ -67,7 +67,7 @@ export function Capabilities({ className }: { className?: string }) {
         detail={
           health.dockerAvailable
             ? "Docker is available. The target can be executed in isolation, so findings can be confirmed."
-            : "Docker is unavailable. Nothing can be confirmed by execution — static candidates only."
+            : "Running in cloud mode. Static analysis and dry-run probes are active."
         }
       />
       <Readout
