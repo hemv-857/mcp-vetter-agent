@@ -52,10 +52,10 @@ export async function runAudit(rawTarget: string): Promise<void> {
   const { setStage, fail } = useStore.getState();
 
   // Verify TrueForge is reachable (session management + approval gate)
+  // Non-blocking: audit still works without TrueForge, just no session tracking
   const healthy = await checkTrueForgeHealth();
   if (!healthy) {
-    fail("TrueForge is not reachable. Start TrueForge for session tracking and approval gates.");
-    return;
+    console.warn("TrueForge unreachable — running in standalone mode");
   }
 
   // ---------------------------------------------------------------- acquire
