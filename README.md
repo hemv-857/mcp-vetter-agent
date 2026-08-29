@@ -140,10 +140,6 @@ The PR history shows each review, the commits addressing its findings, and follo
 
 **This is a real audit of a real repo, not mocked data.**
 
-## Demo
-
-<!-- TODO(day 5): 3-minute video link -->
-
 ## AI tooling disclosure
 
 This project was built with the assistance of AI coding assistants (Claude Code, Cursor). All AI-generated code was reviewed, tested, and understood by the contributors before merging.
