@@ -28,6 +28,9 @@ PATTERNS: list[tuple[str, str, str, str | None, str, str]] = [
     ("VULN-002", "Hardcoded credentials / secrets", "high", None,
      r"(ghp_[A-Za-z0-9]{16,}|gho_[A-Za-z0-9]{16,}|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|password\s*=\s*['\"][^'\"]+['\"])",
      "Hardcoded secret found in source code."),
+    ("VULN-012", "SQL injection via string formatting", "critical", None,
+     r"\.execute\(\s*f['\"]|\.execute\(\s*['\"].*%[sd]|\.execute\(\s*['\"].*\.format\(",
+     "SQL query constructed via string formatting allows injection."),
     ("VULN-003", "Missing input validation", "medium", None,
      r"request\.(args|form|json)\[.*\]\s*(?!\.get\()",
      "Direct access to request parameters without validation."),
@@ -49,6 +52,9 @@ PATTERNS: list[tuple[str, str, str, str | None, str, str]] = [
     ("VULN-009", "Path traversal", "high", None,
      r"(?:open|read_file|write_file)\(.*(?:\+|\.format|f['\"])",
      "File path constructed from user input without sanitization."),
+    ("VULN-009", "Unrestricted file read", "high", None,
+     r"open\([a-zA-Z_][a-zA-Z0-9_]*\)\.read\(\)",
+     "File opened with user-controlled path without validation."),
     ("VULN-010", "Missing HTTPS enforcement", "medium", None,
      r"http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)",
      "Plain HTTP URL may expose data in transit."),
@@ -80,8 +86,8 @@ def _scan_file(path: Path) -> list[dict[str, Any]]:
         compiled = re.compile(content_pattern, re.IGNORECASE)
         for lineno, line in enumerate(lines, 1):
             if compiled.search(line):
-                # Avoid duplicate findings per rule per file
-                if any(f["id"] == rule_id and f.get("file") == str(path) for f in findings):
+                # Avoid duplicate findings per rule+title per file
+                if any(f["id"] == rule_id and f["title"] == title and f.get("file") == str(path) for f in findings):
                     continue
                 findings.append({
                     "id": rule_id,
@@ -113,6 +119,7 @@ def _owasp_for_rule(rule_id: str) -> str:
         "VULN-009": "A01:2025-Excessive Agency",  # path traversal = tool reads outside allowed scope
         "VULN-010": "A06:2025-Insecure Tool Chain",  # missing HTTPS = data exposed in transit
         "VULN-011": "A05:2025-Insecure Output Handling",  # debug mode = sensitive info leaked
+        "VULN-012": "A03:2025-Injection",  # SQL injection via string formatting
     }
     return mapping.get(rule_id, "A00:2025-Unknown")
 
@@ -124,8 +131,14 @@ def _remediation_for_finding(title: str, evidence: str) -> str:
     if "eval" in title_lower or "exec" in title_lower:
         return (
             "Replace eval()/exec() with safe alternatives. "
-            "Use ast.literal_eval() for data parsing, or a沙箱ed execution environment. "
+            "Use ast.literal_eval() for data parsing, or a sandboxed execution environment. "
             "Never pass untrusted input to eval/exec."
+        )
+    elif "sql" in title_lower:
+        return (
+            "Use parameterized queries instead of string formatting. "
+            "cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,)) "
+            "Never interpolate user input into SQL strings."
         )
     elif "subprocess" in title_lower or "os.system" in title_lower:
         return (
