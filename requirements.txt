@@ -3,3 +3,4 @@
 # uvicorn is the ASGI server for the probe MCP endpoint.
 uvicorn>=0.30
 httpx>=0.27
+mcp>=1.20,<2
