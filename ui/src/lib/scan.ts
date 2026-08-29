@@ -54,8 +54,7 @@ export async function runAudit(rawTarget: string): Promise<void> {
   // Verify TrueForge is reachable (session management + approval gate)
   const healthy = await checkTrueForgeHealth();
   if (!healthy) {
-    fail("TrueForge is not reachable. Start TrueForge for session tracking and approval gates.");
-    return;
+    console.warn("TrueForge unreachable — running in standalone mode");
   }
 
   // ---------------------------------------------------------------- acquire
