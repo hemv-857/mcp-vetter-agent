@@ -48,6 +48,10 @@ The harness is doing the real work: reaching tools, running code safely, and sto
 
 ## Quick start
 
+**Deployed services:**
+- **Frontend (Vercel):** https://ui-blond-six.vercel.app/
+- **Probe server (Render):** https://mcp-vetting-probe.onrender.com
+
 ```bash
 # 1. Probe server (the security scanning engine)
 python3 -m venv .venv && source .venv/bin/activate
