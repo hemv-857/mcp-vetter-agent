@@ -26,6 +26,8 @@ import {
   useTicker,
 } from "../../lib/util";
 import { useProbeConnection } from "../../lib/connection";
+import { getPersistedSession } from "../../store";
+import { resumeAudit } from "../../lib/scan";
 import {
   HOLD_MS,
   useRevealComplete,
@@ -1133,6 +1135,16 @@ export function Dashboard() {
   const phase = useStore((s) => s.phase);
   const reset = useStore((s) => s.reset);
   const idle = phase === "idle";
+
+  // Resume interrupted scan on reconnect — the session state was persisted
+  // to sessionStorage so a network drop doesn't lose progress.
+  useEffect(() => {
+    if (phase !== "idle") return;
+    const session = getPersistedSession();
+    if (session && session.phase !== "idle" && session.phase !== "error" && session.phase !== "complete") {
+      void resumeAudit(session);
+    }
+  }, [phase]);
 
   const newAudit = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });

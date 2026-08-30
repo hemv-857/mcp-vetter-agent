@@ -95,49 +95,78 @@ export async function checkHealth(signal?: AbortSignal): Promise<Health> {
  * Every tool returns a JSON object serialised into the first text content
  * block. Errors are values inside that object, not thrown — so unwrap both
  * layers here and let callers deal in one shape.
+ *
+ * Transient transport errors (network drop, session expiry) are retried with
+ * backoff — the server is stateless so a fresh session picks up right where
+ * the old one left off.
  */
 export async function callTool<T extends Record<string, unknown>>(
   name: string,
   args: Record<string, unknown>,
 ): Promise<T> {
-  const active = await connect();
+  const MAX_RETRIES = 3;
+  let lastError: unknown;
 
-  let result;
-  try {
-    result = await active.callTool({ name, arguments: args });
-  } catch (error) {
-    client = null; // force a fresh session on the next call
-    throw new ToolError(
-      error instanceof Error ? error.message : `${name} failed at the transport`,
-    );
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
+    let active: Client;
+    try {
+      active = await connect();
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+        client = null; // force fresh session on next connect()
+        continue;
+      }
+      throw new ToolError(
+        error instanceof Error ? error.message : "could not reach the probe server",
+      );
+    }
+
+    let result;
+    try {
+      result = await active.callTool({ name, arguments: args });
+    } catch (error) {
+      lastError = error;
+      client = null; // force a fresh session on the next attempt
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, 500 * 2 ** attempt));
+        continue;
+      }
+      throw new ToolError(
+        error instanceof Error ? error.message : `${name} failed at the transport`,
+      );
+    }
+
+    const content = Array.isArray(result.content) ? result.content : [];
+    const text = content.find(
+      (block): block is { type: "text"; text: string } =>
+        typeof block === "object" &&
+        block !== null &&
+        (block as { type?: unknown }).type === "text",
+    )?.text;
+
+    if (typeof text !== "string") {
+      throw new ToolError(`${name} returned no readable content`);
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new ToolError(`${name} returned malformed JSON`, { raw: text.slice(0, 500) });
+    }
+
+    if (typeof parsed !== "object" || parsed === null) {
+      throw new ToolError(`${name} returned an unexpected payload`);
+    }
+
+    const payload = parsed as Record<string, unknown>;
+    if (typeof payload.error === "string") {
+      throw new ToolError(payload.error, payload);
+    }
+    return payload as T;
   }
 
-  const content = Array.isArray(result.content) ? result.content : [];
-  const text = content.find(
-    (block): block is { type: "text"; text: string } =>
-      typeof block === "object" &&
-      block !== null &&
-      (block as { type?: unknown }).type === "text",
-  )?.text;
-
-  if (typeof text !== "string") {
-    throw new ToolError(`${name} returned no readable content`);
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new ToolError(`${name} returned malformed JSON`, { raw: text.slice(0, 500) });
-  }
-
-  if (typeof parsed !== "object" || parsed === null) {
-    throw new ToolError(`${name} returned an unexpected payload`);
-  }
-
-  const payload = parsed as Record<string, unknown>;
-  if (typeof payload.error === "string") {
-    throw new ToolError(payload.error, payload);
-  }
-  return payload as T;
+  throw lastError instanceof Error ? lastError : new ToolError("tool call failed after retries");
 }

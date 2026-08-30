@@ -15,6 +15,7 @@ import type {
 } from "./types";
 
 const RECENT_KEY = "mcp-vetting.recent";
+const SESSION_KEY = "mcp-vetting.session";
 
 export const STAGE_ORDER: StageId[] = [
   "clone",
@@ -59,6 +60,55 @@ function readTarget(): string {
   } catch {
     return "";
   }
+}
+
+// ── Session persistence for network-resilient scans ─────────────────────────
+// When the network drops mid-scan, the UI needs to remember what it was doing
+// so it can reconnect and resume instead of starting over.
+
+interface PersistedSession {
+  target: string;
+  targetPath: string | null;
+  phase: Phase;
+  stages: Stage[];
+  scanStartedAt: number | null;
+  manifests: Manifest[];
+}
+
+function saveSession(state: AuditState): void {
+  if (state.phase === "idle" || state.phase === "error" || state.phase === "complete" || state.phase === "filed") {
+    sessionStorage.removeItem(SESSION_KEY);
+    return;
+  }
+  const session: PersistedSession = {
+    target: state.repoUrl,
+    targetPath: state.targetPath,
+    phase: state.phase,
+    stages: state.stages,
+    scanStartedAt: state.scanStartedAt,
+    manifests: state.manifests,
+  };
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch { /* non-fatal */ }
+}
+
+function loadSession(): PersistedSession | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const s = parsed as Record<string, unknown>;
+    if (typeof s.target !== "string") return null;
+    return parsed as PersistedSession;
+  } catch {
+    return null;
+  }
+}
+
+export function getPersistedSession(): PersistedSession | null {
+  return loadSession();
 }
 
 function readRecent(): string[] {
@@ -265,3 +315,8 @@ export const useStore = create<AuditState>()((set, get) => ({
       errorTitle: null,
     }),
 }));
+
+// Auto-persist scan session so network drops don't lose progress.
+useStore.subscribe((state) => {
+  saveSession(state);
+});

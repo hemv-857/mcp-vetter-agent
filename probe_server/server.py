@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import threading
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.cors import CORSMiddleware
 
@@ -34,6 +35,38 @@ STATIC_TIMEOUT_SECONDS = 30
 FULL_TIMEOUT_SECONDS = 300
 CLONE_TIMEOUT_SECONDS = 120
 _REPORT_EXIT_CODES = (0, 1)  # 0 = clean, 1 = findings at/over fail threshold
+
+
+# ── Session-resilience scan state tracker ────────────────────────────────────
+# When a network drop happens mid-scan, the UI reconnects and needs to know
+# what the server was doing.  This thin tracker records active scans keyed by
+# target path so the /session-state endpoint can report them.  Scans that
+# complete or fail are pruned automatically.  Thread-safe via a lock.
+class _ScanState:
+    """In-memory registry of active scans for session resumption."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._active: dict[str, dict[str, Any]] = {}  # target_path → metadata
+
+    def register(self, target_path: str, scan_type: str = "unknown") -> None:
+        with self._lock:
+            self._active[target_path] = {
+                "target": target_path,
+                "scan_type": scan_type,
+                "started_at": time.time(),
+            }
+
+    def complete(self, target_path: str) -> None:
+        with self._lock:
+            self._active.pop(target_path, None)
+
+    def active_scans(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._active.values())
+
+
+_scan_state = _ScanState()
 
 # Dev-only replay. When the security_scanner engine is not installed on this host,
 # VETTING_DEV_FIXTURES=1 makes the audit tools return a captured report so the
@@ -307,7 +340,9 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
         tail = stderr.decode(errors="replace")[-500:]
         await _cleanup()
         return {"error": "git clone failed", "git_stderr_tail": tail}
-    return {"target": dest + "/repo"}
+    result_path = dest + "/repo"
+    _scan_state.register(result_path, "clone")
+    return {"target": result_path}
 
 
 @mcp.tool(
@@ -453,6 +488,13 @@ async def file_github_issue(
         "number": data["number"],
         "repo": f"{owner}/{repo}",
     }
+
+
+@mcp.custom_route("/session-state", methods=["GET"])
+async def session_state(request: Any) -> Any:
+    """Report active scans so a reconnecting UI can resume where it left off."""
+    from starlette.responses import JSONResponse
+    return JSONResponse({"active_scans": _scan_state.active_scans()})
 
 
 @mcp.custom_route("/health", methods=["GET"])

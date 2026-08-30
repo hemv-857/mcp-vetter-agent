@@ -219,3 +219,139 @@ export function declineFiling(): void {
   setPhase("complete");
   setDraft(null);
 }
+
+/**
+ * Resume a scan that was interrupted by a network drop.
+ *
+ * Called on app load when a persisted session exists. Re-runs the remaining
+ * stages from where the previous run left off, using the saved targetPath.
+ */
+export async function resumeAudit(persisted: {
+  target: string;
+  targetPath: string | null;
+  phase: string;
+  stages: { id: string; state: string }[];
+}): Promise<void> {
+  const { target, targetPath } = persisted;
+  if (!targetPath) {
+    // Clone was in progress when we dropped — restart from scratch.
+    return runAudit(target);
+  }
+
+  // Find the first failed/active stage to resume from.
+  const failedStage = persisted.stages.find((s) => s.state === "failed" || s.state === "active");
+  const resumeFrom = failedStage?.id ?? "synthesis";
+
+  const store = useStore.getState();
+  store.beginScan(target);
+  store.setTargetPath(targetPath);
+
+  // Skip clone — we already have the targetPath.
+  store.setStage("clone", { state: "done", note: "resumed" });
+
+  // If resuming from manifest or later, re-read manifests.
+  if (resumeFrom === "manifest" || resumeFrom === "static" || resumeFrom === "dynamic") {
+    store.setStage("manifest", { state: "active", startedAt: Date.now() });
+    try {
+      const result = await callTool<{ manifests: Record<string, string> }>(
+        "read_target_manifest",
+        { target_dir: targetPath },
+      );
+      const manifests: Manifest[] = Object.entries(result.manifests ?? {}).map(([name, body]) => ({
+        name,
+        body,
+      }));
+      useStore.getState().setManifests(manifests);
+      store.setStage("manifest", { state: "done", endedAt: Date.now(), note: `${manifests.length} files` });
+    } catch {
+      store.setStage("manifest", { state: "failed", endedAt: Date.now() });
+    }
+  }
+
+  // Run static + dynamic lanes if they weren't done.
+  const staticDone = persisted.stages.find((s) => s.id === "static")?.state === "done";
+  const dynamicDone = persisted.stages.find((s) => s.id === "dynamic")?.state === "done";
+
+  if (!staticDone || !dynamicDone) {
+    const now = Date.now();
+    if (!staticDone) store.setStage("static", { state: "active", startedAt: now, budgetMs: STAGE_BUDGET.static });
+    if (!dynamicDone) store.setStage("dynamic", { state: "active", startedAt: now, budgetMs: STAGE_BUDGET.dynamic });
+
+    let sampleData = false;
+
+    const staticLane = (async (): Promise<Finding[]> => {
+      if (staticDone) return [];
+      try {
+        const report = await callTool<Record<string, unknown>>("static_audit", { target_dir: targetPath });
+        if (report.sample_data === true) sampleData = true;
+        const findings = findingsFromReport(report, "static");
+        store.setStage("static", { state: "done", endedAt: Date.now(), note: `${findings.length} candidates` });
+        return findings;
+      } catch {
+        store.setStage("static", { state: "failed", endedAt: Date.now() });
+        return [];
+      }
+    })();
+
+    const dynamicLane = (async (): Promise<Finding[]> => {
+      if (dynamicDone) return [];
+      try {
+        const report = await callTool<Record<string, unknown>>("full_audit", {
+          target_dir: targetPath,
+          allow_degraded: true,
+        });
+        if (report.sample_data === true) sampleData = true;
+        const findings = findingsFromReport(report, "full").filter((f) => f.source === "dynamic");
+        store.setStage("dynamic", { state: "done", endedAt: Date.now(), note: `${findings.length} confirmed` });
+        return findings;
+      } catch (error) {
+        const detail = message(error);
+        const unavailable = /docker/i.test(detail);
+        store.setStage("dynamic", {
+          state: unavailable ? "skipped" : "failed",
+          endedAt: Date.now(),
+          note: unavailable ? "no sandbox" : undefined,
+        });
+        return [];
+      }
+    })();
+
+    const [staticFindings, dynamicFindings] = await Promise.all([staticLane, dynamicLane]);
+    useStore.getState().setSampleData(sampleData);
+
+    const staticState = useStore.getState().stages.find((s) => s.id === "static")?.state;
+    if (staticState === "failed" && dynamicFindings.length === 0) {
+      useStore.getState().fail("The scan engine returned no usable report. Nothing could be analysed.");
+      return;
+    }
+
+    const findings = mergeFindings(staticFindings, dynamicFindings);
+    const summary = summarize(findings);
+    let verdict = verdictOf(summary);
+    const dynamicState = useStore.getState().stages.find((s) => s.id === "dynamic")?.state;
+    if (verdict === "CLEAN" && (dynamicState === "skipped" || dynamicState === "failed")) {
+      verdict = "DEGRADED";
+    }
+    useStore.getState().setResults(findings, summary, verdict);
+  }
+
+  // Synthesis
+  store.setStage("synthesis", { state: "active", startedAt: Date.now() });
+  useStore.getState().setPhase("synthesizing");
+  const { findings, summary, verdict } = useStore.getState();
+  if (summary) {
+    store.setStage("synthesis", { state: "done", endedAt: Date.now(), note: verdict ?? undefined });
+  }
+
+  // Human review
+  if (summary && warrantsReport(summary)) {
+    const draft = buildDraft(target, findings, summary, useStore.getState().sampleData);
+    useStore.getState().setDraft(draft);
+    store.setStage("review", { state: "awaiting", startedAt: Date.now() });
+    useStore.getState().setPhase("awaiting_approval");
+  } else {
+    store.setStage("review", { state: "skipped", note: "not warranted" });
+    store.setStage("file", { state: "skipped", note: "not warranted" });
+    useStore.getState().setPhase("complete");
+  }
+}

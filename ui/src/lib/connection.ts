@@ -31,16 +31,29 @@ export function useProbeConnection(): () => void {
     }
   }, [setConnection]);
 
+  // Lightweight reconnect during active scans — keeps the MCP session alive
+  // without the full health round-trip that would interrupt the audit.
+  const reconnectDuringScan = useCallback(async () => {
+    try {
+      await connect();
+      setConnection("connected", useStore.getState().health);
+    } catch {
+      // Don't set "disconnected" during a scan — let the tool call retry handle it.
+    }
+  }, [setConnection]);
+
   useEffect(() => {
     void probe();
     const id = window.setInterval(() => {
       const { phase } = useStore.getState();
-      // never interrupt a running audit with a health round-trip
-      if (phase === "scanning" || phase === "synthesizing" || phase === "filing") return;
+      if (phase === "scanning" || phase === "synthesizing" || phase === "filing") {
+        void reconnectDuringScan();
+        return;
+      }
       void probe();
     }, HEALTH_INTERVAL);
     return () => window.clearInterval(id);
-  }, [probe]);
+  }, [probe, reconnectDuringScan]);
 
   return probe;
 }
