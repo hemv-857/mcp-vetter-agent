@@ -84,6 +84,7 @@ function saveSession(state: AuditState): void {
     sessionStorage.removeItem(SESSION_KEY);
     return;
   }
+  // Keep "complete" sessions so findings survive browser refresh.
   const session: PersistedSession = {
     target: state.repoUrl,
     targetPath: state.targetPath,
