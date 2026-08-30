@@ -502,6 +502,13 @@ async def session_state(request: Any) -> Any:
     return JSONResponse({"active_scans": _scan_state.active_scans()})
 
 
+@mcp.custom_route("/", methods=["GET"])
+async def root(request: Any) -> Any:
+    """Redirect root to health endpoint."""
+    from starlette.responses import RedirectResponse
+    return RedirectResponse(url="/health", status_code=302)
+
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health(request: Any) -> Any:
     """Liveness plus the capability flags the UI needs to render honest state."""
