@@ -135,16 +135,23 @@ Every substantive change in this repository went through a pull request reviewed
 
 The PR history shows each review, the commits addressing its findings, and follow-up reviews confirming resolution against the final code.
 
-## Live Demo
+## 🎬 Demo
 
-1. **Visit console:** https://ui-blond-six.vercel.app/
-2. **Enter repo:** `https://github.com/hemv-857/mcp-vetter-fixture-target`
-3. **Watch probes run:** Findings appear in real-time
-4. **Review findings:** Critical vulnerabilities detected (eval, SQL injection, path traversal)
-5. **Click Allow:** Issue files to the fixture repo
-6. **Verify:** See the filed issue at https://github.com/hemv-857/mcp-vetter-fixture-target/issues
+Watch the 3-minute walkthrough:
+**[MCP Vetter Agent Demo on YouTube](https://youtube.com/watch?v=rld2-lTAexY)**
 
-**This is a real audit of a real repo, not mocked data.**
+See the system in action:
+- Parallel security probes running in real-time
+- Real vulnerabilities detected with OWASP Agentic Top 10 mapping
+- Human approval gate demonstrated (3-second hold before irreversible action)
+- GitHub issues filed to real repositories
+
+**Try it yourself:**
+- **Live Console:** https://ui-blond-six.vercel.app/
+- **Probe Server Health:** https://mcp-vetting-probe.onrender.com/health
+- **Test Fixture Repo:** https://github.com/hemv-857/mcp-vetter-fixture-target
+
+Enter the fixture repo URL in the live console to see a real security audit in action.
 
 ## AI tooling disclosure
 
