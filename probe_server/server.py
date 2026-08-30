@@ -21,13 +21,13 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-import threading
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.cors import CORSMiddleware
 
