@@ -73,10 +73,14 @@ interface PersistedSession {
   stages: Stage[];
   scanStartedAt: number | null;
   manifests: Manifest[];
+  findings: Finding[];
+  summary: Summary | null;
+  verdict: Verdict | null;
+  sampleData: boolean;
 }
 
 function saveSession(state: AuditState): void {
-  if (state.phase === "idle" || state.phase === "error" || state.phase === "complete" || state.phase === "filed") {
+  if (state.phase === "idle" || state.phase === "error" || state.phase === "filed") {
     sessionStorage.removeItem(SESSION_KEY);
     return;
   }
@@ -87,6 +91,10 @@ function saveSession(state: AuditState): void {
     stages: state.stages,
     scanStartedAt: state.scanStartedAt,
     manifests: state.manifests,
+    findings: state.findings,
+    summary: state.summary,
+    verdict: state.verdict,
+    sampleData: state.sampleData,
   };
   try {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));

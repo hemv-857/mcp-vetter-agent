@@ -1141,9 +1141,27 @@ export function Dashboard() {
   useEffect(() => {
     if (phase !== "idle") return;
     const session = getPersistedSession();
-    if (session && session.phase !== "idle" && session.phase !== "error" && session.phase !== "complete") {
-      void resumeAudit(session);
+    if (!session || session.phase === "idle" || session.phase === "error") return;
+
+    // If findings already exist, restore them directly — no need to re-scan.
+    if (session.findings.length > 0 || session.summary) {
+      useStore.setState({
+        repoUrl: session.target,
+        targetPath: session.targetPath,
+        phase: session.phase,
+        stages: session.stages,
+        scanStartedAt: session.scanStartedAt,
+        manifests: session.manifests,
+        findings: session.findings,
+        summary: session.summary,
+        verdict: session.verdict,
+        sampleData: session.sampleData,
+      });
+      return;
     }
+
+    // Mid-scan with no results yet — resume from where we left off.
+    void resumeAudit(session);
   }, [phase]);
 
   const newAudit = useCallback(() => {
