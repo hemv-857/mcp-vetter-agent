@@ -61,8 +61,13 @@ class _ScanState:
         with self._lock:
             self._active.pop(target_path, None)
 
-    def active_scans(self) -> list[dict[str, Any]]:
+    def active_scans(self, max_age_seconds: int = 3600) -> list[dict[str, Any]]:
+        """Return active scans, auto-pruning entries older than max_age_seconds."""
+        now = time.time()
         with self._lock:
+            stale = [k for k, v in self._active.items() if now - v["started_at"] > max_age_seconds]
+            for k in stale:
+                del self._active[k]
             return list(self._active.values())
 
 
