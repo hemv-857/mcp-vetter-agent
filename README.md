@@ -46,6 +46,21 @@ TrueForge is the agent harness — the runtime layer between the model and the t
 
 The harness is doing the real work: reaching tools, running code safely, and stopping for a person before anything irreversible.
 
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| **Agent harness** | [TrueForge](https://trueforge.dev) — open-source agent runtime |
+| **Probe server** | Python, FastMCP, Starlette, uvicorn |
+| **Security scanning** | Custom AST rules (VULN-001..007), Docker-sandboxed dynamic probes (VULN-008..011) |
+| **Web console** | React 18, TypeScript, Vite, Tailwind CSS 4, Zustand |
+| **MCP protocol** | `@modelcontextprotocol/sdk` (streamable-HTTP transport) |
+| **Sandbox** | Docker — throwaway containers for isolated probe execution |
+| **Deployment** | Vercel (frontend), Render (probe server) |
+| **Code review** | [Qodo](https://www.qodo.ai) — every PR reviewed before merge |
+| **Model** | Ollama (`qwen2.5:7b`) — local inference, no data leaves the machine |
+| **Version control** | GitHub, conventional commits |
+
 ## Quick start
 
 **Deployed services:**
