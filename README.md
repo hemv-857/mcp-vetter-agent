@@ -38,6 +38,8 @@ TrueForge is the agent harness — the runtime layer between the model and the t
 | **MCP tool connectivity** | The probe server registers as an MCP connector. TrueForge calls `clone_target`, `read_target_manifest`, `static_audit`, `full_audit`, and `file_github_issue` through the harness — not through a wrapper. |
 | **Approval gate (HITL)** | `file_github_issue` is annotated `@write`. TrueForge pauses the agent and presents Allow/Deny before the tool executes. The human approves or declines; the agent respects the decision. |
 | **Sandbox** | Dynamic probes execute the target MCP server inside throwaway Docker containers. The sandbox is configured in TrueForge's agent manifest (`sandbox.enabled: true`). |
+
+![Docker sandbox proof — container `vetted-audit-1788080269` running during a live audit](docs/docker-sandbox-proof.png)
 | **Subagents** | Static and dynamic audits run in parallel as delegated subagent tasks, keeping the main agent context clean. |
 | **Session persistence** | The audit session survives browser refreshes and reconnects. If the connection drops mid-audit, the agent continues and the UI reattaches to the running session. |
 | **Model flexibility** | Runs on a local Ollama model (`qwen2.5:7b`) — no API key required, no data leaves the machine. |
