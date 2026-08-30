@@ -326,6 +326,13 @@ export const useStore = create<AuditState>()((set, get) => ({
 }));
 
 // Auto-persist scan session so network drops don't lose progress.
+// Skip the first emission (initial store state) to avoid wiping a session
+// that a page-refresh just loaded from sessionStorage.
+let _firstEmission = true;
 useStore.subscribe((state) => {
+  if (_firstEmission) {
+    _firstEmission = false;
+    return;
+  }
   saveSession(state);
 });
