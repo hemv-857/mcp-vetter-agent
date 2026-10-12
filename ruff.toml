@@ -1,0 +1,15 @@
+# Lint config. `ruff check probe_server/ tests/` must pass — enforced in CI.
+line-length = 100
+# Pinned explicitly: without it ruff infers from the running interpreter, so a
+# ruff release that changes the default silently rewrites which rules fire.
+# CI runs Python 3.12, so py312 is the real floor.
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "RUF", "C4", "EXE", "PYI"]
+# E501: matches the sibling repos (ptm-recovery-agent, rzp-recovery-agent) — long
+# lines here are mostly finding text and docstrings, where wrapping hurts grep-ability.
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"tests/*" = ["SIM115"]        # deliberate open() in fixture setup

@@ -16,6 +16,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Lint
-        run: ruff check probe_server/ tests/
+        run: |
+          # Pinned: an unpinned ruff silently changes which rules fire on
+          # release, which turned this pipeline red on 0.17.0 (UP041).
+          # Bump it deliberately, in a PR.
+          pip install 'ruff==0.17.0'
+          ruff check probe_server/ tests/
       - name: Test
         run: pytest tests/ -v
