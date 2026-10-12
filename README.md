@@ -177,3 +177,7 @@ This project was built with the assistance of AI coding assistants (Claude Code,
 ## Credits
 
 Built for The Agent Harness Hackathon (WeMakeDevs × TrueFoundry, Aug 2026). See `fixtures/LICENSE` for bundled reference-code licensing.
+
+## License
+
+[MIT](https://github.com/hemv-857/mcp-vetter-agent/blob/main/LICENSE) — see the file for the full text.
