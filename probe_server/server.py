@@ -209,7 +209,7 @@ async def _run_scan(
 
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await _reap()
         return {
             "error": f"scan timed out after {timeout}s",
@@ -333,7 +333,7 @@ async def clone_target(repo_url: str) -> dict[str, Any]:
         await _reap()
         await _cleanup()
         raise
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await _reap()
         await _cleanup()
         return {
