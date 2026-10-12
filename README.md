@@ -1,5 +1,7 @@
 # MCP Vetting Agent
 
+<a href="https://github.com/hemv-857/mcp-vetter-agent/actions/workflows/ci.yml"><img src="https://github.com/hemv-857/mcp-vetter-agent/actions/workflows/ci.yml/badge.svg" alt="mcp-vetter-agent CI"></a> <a href="https://github.com/hemv-857/mcp-vetter-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a> <img src="https://img.shields.io/badge/TypeScript-3178C6.svg" alt="TypeScript">
+
 **An AI security auditor for AI tools.** An agent, running on [TrueForge](https://trueforge.dev), that vets third-party MCP servers for security vulnerabilities *before* you connect them to your agent — then pauses and asks a human before filing a public security report.
 
 > TrueForge connects agents to any MCP server. Community servers are shared as gists, templates, and side projects — with hardcoded keys, `eval()` on tool args, and no auth boundaries. Agents don't know to be suspicious. This agent is the suspicious one.
